@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "lib",
+    "cli"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["TJ Kells <tjkells@gmail.com>"]
+license = "MIT"

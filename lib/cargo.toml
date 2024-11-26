@@ -1,0 +1,21 @@
+[package]
+name = "pulldown-html-ext"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Extended HTML rendering capabilities for pulldown-cmark"
+
+
+[dependencies]
+ego-tree = "0.9.0"
+pulldown-cmark = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.133"
+thiserror = "1.0"
+toml = "0.8.19"
+
+
+[dev-dependencies]
+html-compare-rs = "0.2.0"
+scraper = "0.21"

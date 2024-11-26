@@ -1,0 +1,21 @@
+[package]
+name = "pulldown-html-ext-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI tool for extended HTML rendering of Markdown with pulldown-cmark"
+
+[dependencies ]
+pulldown-html-ext = { path = "../lib" }
+toml = "0.8"
+clap = { version = "4.4", features = ["derive"] }
+
+[dev-dependencies]
+assert_cmd = "2.0.16"
+predicates = "3.1.2"
+tempfile = "3.14.0"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
