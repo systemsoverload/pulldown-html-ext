@@ -25,6 +25,7 @@ pub use config::{
     AttributeMappings, CodeBlockOptions, ElementOptions, HeadingOptions, HtmlOptions, LinkOptions,
     RendererConfig,
 };
+pub use default_handler::DefaultTagHandler;
 pub use renderer::Renderer;
 pub use tag_handler::TagHandler;
 
