@@ -1,9 +1,10 @@
 use pulldown_cmark::{Alignment, LinkType};
 
 /// Represents the current state of table parsing
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub enum TableState {
     /// Not currently within a table
+    #[default]
     NotInTable,
     /// Currently in the header section of a table
     InHeader,
@@ -11,25 +12,14 @@ pub enum TableState {
     InBody,
 }
 
-impl Default for TableState {
-    fn default() -> Self {
-        TableState::NotInTable
-    }
-}
-
 /// Represents the type of list currently being processed
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub enum ListType {
     /// An ordered list (<ol>) with a starting number
     Ordered(u32),
     /// An unordered list (<ul>)
+    #[default]
     Unordered,
-}
-
-impl Default for ListType {
-    fn default() -> Self {
-        ListType::Unordered
-    }
 }
 
 /// Maintains the state of the HTML rendering process
@@ -50,6 +40,8 @@ pub struct RendererState {
     pub heading_stack: Vec<String>,
     /// Whether currently processing a code block
     pub currently_in_code_block: bool,
+    /// Whether currently processing a footnote definition
+    pub currently_in_footnote: bool,
 }
 
 impl RendererState {
@@ -64,9 +56,11 @@ impl RendererState {
             link_stack: Vec::new(),
             heading_stack: Vec::new(),
             currently_in_code_block: false,
+            currently_in_footnote: false,
         }
     }
 
+    #[allow(dead_code)]
     /// Reset all state, typically called between document renders
     pub fn reset(&mut self) {
         self.numbers.clear();
@@ -79,21 +73,25 @@ impl RendererState {
         self.currently_in_code_block = false;
     }
 
+    #[allow(dead_code)]
     /// Check if currently inside a table
     pub fn in_table(&self) -> bool {
         self.table_state != TableState::NotInTable
     }
 
+    #[allow(dead_code)]
     /// Check if currently in a table header
     pub fn in_table_header(&self) -> bool {
         self.table_state == TableState::InHeader
     }
 
+    #[allow(dead_code)]
     /// Get the current nesting level of lists
     pub fn list_depth(&self) -> usize {
         self.list_stack.len()
     }
 
+    #[allow(dead_code)]
     /// Get the current list type, if any
     pub fn current_list_type(&self) -> Option<ListType> {
         self.list_stack.last().copied()
