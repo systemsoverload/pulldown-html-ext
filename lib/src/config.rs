@@ -78,7 +78,7 @@ impl Default for RendererConfig {
     fn default() -> Self {
         RendererConfig {
             html: HtmlOptions {
-                escape_html: true,
+                escape_html: false,
                 break_on_newline: true,
                 xhtml_style: false,
                 pretty_print: true,
@@ -90,7 +90,7 @@ impl Default for RendererConfig {
                     level_classes: HashMap::new(),
                 },
                 links: LinkOptions {
-                    nofollow_external: false,
+                    nofollow_external: true,
                     open_external_blank: true,
                 },
                 code_blocks: CodeBlockOptions {
@@ -109,8 +109,8 @@ fn deserialize_heading_map<'de, D>(deserializer: D) -> Result<HashMap<u8, String
 where
     D: serde::Deserializer<'de>,
 {
-    use serde_json::Value;
     use serde::de::Error;
+    use serde_json::Value;
 
     let value = Value::deserialize(deserializer)?;
 
@@ -143,8 +143,8 @@ fn deserialize_nested_string_map<'de, D>(
 where
     D: serde::Deserializer<'de>,
 {
-    use serde_json::Value;
     use serde::de::Error;
+    use serde_json::Value;
 
     let value = Value::deserialize(deserializer)?;
 
@@ -223,7 +223,8 @@ mod tests {
             }
         });
 
-        let map: HashMap<String, HashMap<String, String>> = deserialize_nested_string_map(json).unwrap();
+        let map: HashMap<String, HashMap<String, String>> =
+            deserialize_nested_string_map(json).unwrap();
         assert_eq!(map.get("h1").unwrap().get("class").unwrap(), "title");
         assert_eq!(map.get("h1").unwrap().get("data-level").unwrap(), "1");
         assert_eq!(map.get("pre").unwrap().get("class").unwrap(), "code-block");
