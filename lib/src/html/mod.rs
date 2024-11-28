@@ -10,6 +10,7 @@ mod state;
 mod writer;
 
 use pulldown_cmark::{Event, Parser};
+use pulldown_cmark_escape::{FmtWriter, IoWriter, StrWrite};
 use std::iter::Peekable;
 
 pub use self::config::{
@@ -21,14 +22,19 @@ pub use self::state::{HtmlState, ListContext, TableContext};
 pub use self::writer::HtmlWriter;
 
 /// Core renderer that processes Markdown events into HTML
-pub struct HtmlRenderer<W: HtmlWriter> {
-    writer: W,
+use std::marker::PhantomData;
+
+pub struct HtmlRenderer<W: StrWrite, H: HtmlWriter<W>> {
+    writer: H,
+    _phantom: PhantomData<W>,
 }
 
-impl<W: HtmlWriter> HtmlRenderer<W> {
-    /// Create a new renderer with the given HTML writer
-    pub fn new(writer: W) -> Self {
-        Self { writer }
+impl<W: StrWrite, H: HtmlWriter<W>> HtmlRenderer<W, H> {
+    pub fn new(writer: H) -> Self {
+        Self {
+            writer,
+            _phantom: PhantomData,
+        }
     }
 
     /// Process the event stream and generate HTML output
@@ -43,7 +49,7 @@ impl<W: HtmlWriter> HtmlRenderer<W> {
                 Event::End(tag) => self.handle_end(tag),
                 Event::Text(text) => self.writer.text(&text),
                 Event::Code(text) => self.handle_inline_code(&text),
-                Event::Html(html) => self.writer.html_raw(&html),
+                Event::Html(html) => self.writer.write_str(&html),
                 Event::SoftBreak => self.writer.soft_break(),
                 Event::HardBreak => self.writer.hard_break(),
                 Event::Rule => self.writer.horizontal_rule(),
@@ -121,14 +127,37 @@ impl<W: HtmlWriter> HtmlRenderer<W> {
 pub fn push_html(markdown: &str, config: &HtmlConfig) -> String {
     let mut output = String::new();
     let parser = Parser::new(markdown);
-    let writer = DefaultHtmlWriter::new(&mut output, config);
+    let writer = DefaultHtmlWriter::new(FmtWriter(&mut output), config);
     let mut renderer = HtmlRenderer::new(writer);
-    renderer.run(parser);
+    renderer.run(parser); // TODO: Handle errors...
     output
 }
 
+/// Write HTML to a std::fmt::Write implementor
+pub fn write_html_fmt<W>(writer: W, markdown: &str, config: &HtmlConfig)
+where
+    W: std::fmt::Write,
+{
+    let parser = Parser::new(markdown);
+    let writer = DefaultHtmlWriter::new(FmtWriter(writer), config);
+    let mut renderer = HtmlRenderer::new(writer);
+    renderer.run(parser); // TODO: Handle errors...
+}
+
+/// Write HTML to a std::io::Write implementor
+pub fn write_html_io<W>(writer: W, markdown: &str, config: &HtmlConfig)
+where
+    W: std::io::Write,
+{
+    let parser = Parser::new(markdown);
+    let writer = DefaultHtmlWriter::new(IoWriter(writer), config);
+    let mut renderer = HtmlRenderer::new(writer);
+    renderer.run(parser)
+    //.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)); // TODO: Handle errors...
+}
+
 /// Create a custom HTML renderer with a specific writer implementation
-pub fn create_html_renderer<W: HtmlWriter>(writer: W) -> HtmlRenderer<W> {
+pub fn create_html_renderer<W: StrWrite, H: HtmlWriter<W>>(writer: H) -> HtmlRenderer<W, H> {
     HtmlRenderer::new(writer)
 }
 

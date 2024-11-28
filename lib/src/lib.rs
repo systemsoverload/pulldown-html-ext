@@ -19,26 +19,52 @@
 //! Custom rendering with a custom writer:
 //! ```rust
 //! use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, create_html_renderer};
+//! use pulldown_cmark_escape::{StrWrite, FmtWriter};
 //!
-//! struct CustomWriter {
+//! struct CustomWriter<W: StrWrite> {
+//!     writer: W,
 //!     config: HtmlConfig,
-//!     output: String,
 //!     state: HtmlState,
 //! }
 //!
-//! impl HtmlWriter for CustomWriter {
-//!     // Implement required methods...
-//! #    fn get_config(&self) -> &HtmlConfig { &self.config }
-//! #    fn get_output(&mut self) -> &mut String { &mut self.output }
-//! #    fn get_state(&mut self) -> &mut HtmlState { &mut self.state }
+//! impl<W: StrWrite> CustomWriter<W> {
+//!     fn new(writer: W, config: HtmlConfig) -> Self {
+//!         Self {
+//!             writer,
+//!             config,
+//!             state: HtmlState::new(),
+//!         }
+//!     }
 //! }
 //!
-//! let writer = CustomWriter {
-//!     config: HtmlConfig::default(),
-//!     output: String::new(),
-//!     state: HtmlState::new(),
-//! };
-//! let renderer = create_html_renderer(writer);
+//! impl<W: StrWrite> HtmlWriter<W> for CustomWriter<W> {
+//!     fn get_writer(&mut self) -> &mut W {
+//!         &mut self.writer
+//!     }
+//!
+//!     fn get_config(&self) -> &HtmlConfig {
+//!         &self.config
+//!     }
+//!
+//!     fn get_state(&mut self) -> &mut HtmlState {
+//!         &mut self.state
+//!     }
+//! }
+//!
+//! let mut output = String::new();
+//! let writer = CustomWriter::new(
+//!     FmtWriter(&mut output),
+//!     HtmlConfig::default()
+//! );
+//! let mut renderer = create_html_renderer(writer);
+//!
+//! // Use the renderer with a parser
+//! use pulldown_cmark::Parser;
+//! let markdown = "# Hello\nThis is *markdown*";
+//! let parser = Parser::new(markdown);
+//! renderer.run(parser);
+//!
+//! assert!(output.contains("<h1"));
 //! ```
 
 mod html;

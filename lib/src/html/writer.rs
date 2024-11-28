@@ -1,19 +1,18 @@
 use crate::html::ListContext;
 use crate::html::TableContext;
 
-use pulldown_cmark::CowStr;
-use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, LinkType};
+use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType};
+use pulldown_cmark_escape::{escape_href, escape_html, escape_html_body_text, StrWrite};
 use std::iter::Peekable;
 
 use crate::html::state::HtmlState;
-use crate::utils::{escape_href, escape_html};
 use crate::HtmlConfig;
 
 /// Trait for handling Markdown tag rendering to HTML
-pub trait HtmlWriter {
+pub trait HtmlWriter<W: StrWrite> {
     /// Write a string directly to the output
     fn write_str(&mut self, s: &str) {
-        self.get_output().push_str(s);
+        let _ = self.get_writer().write_str(s);
     }
 
     /// Write HTML attributes for a given element
@@ -33,7 +32,7 @@ pub trait HtmlWriter {
 
     fn get_config(&self) -> &HtmlConfig;
 
-    fn get_output(&mut self) -> &mut String;
+    fn get_writer(&mut self) -> &mut W;
 
     fn get_state(&mut self) -> &mut HtmlState;
 
@@ -79,17 +78,15 @@ pub trait HtmlWriter {
         }
     }
 
-    // Heading handlers need custom implementation for IDs and classes
     fn start_heading(&mut self, level: HeadingLevel, id: Option<&str>, classes: Vec<&str>) {
         let tag = format!("h{}", self.heading_level_to_u8(level));
         self.write_str(&format!("<{}", tag));
 
         if self.get_config().elements.headings.add_ids {
-            let heading_id = match id {
-                Some(id) => id.to_string(),
-                None => self.generate_heading_id(level),
-            };
-            self.write_str(&format!(" id=\"{}\"", heading_id));
+            let heading_id = id.map_or_else(|| self.generate_heading_id(level), |s| s.to_string());
+            self.write_str(" id=\"");
+            let _ = escape_html(&mut self.get_writer(), &heading_id);
+            self.write_str("\"");
             self.get_state().heading_stack.push(heading_id);
         }
 
@@ -108,7 +105,7 @@ pub trait HtmlWriter {
 
         if !all_classes.is_empty() {
             self.write_str(" class=\"");
-            self.write_str(&all_classes.join(" "));
+            let _ = escape_html(&mut self.get_writer(), &all_classes.join(" "));
             self.write_str("\"");
         }
 
@@ -305,31 +302,25 @@ pub trait HtmlWriter {
         self.write_str("</del>");
     }
 
-    // Link and media handlers - need custom implementation for external link handling
     fn start_link(&mut self, _link_type: LinkType, dest: &str, title: &str) {
-        // FIXME
-        // self.state.link_stack.push(link_type);
-
         self.write_str("<a href=\"");
-        escape_href(self.get_output(), dest);
-        self.write_str("\"");
+        let _ = escape_href(&mut self.get_writer(), dest);
 
         if !title.is_empty() {
-            self.write_str(" title=\"");
-            escape_html(self.get_output(), title);
-            self.write_str("\"");
+            self.write_str("\" title=\"");
+            let _ = escape_html(&mut self.get_writer(), title);
         }
 
-        // Apply link options from config for external links
         if self.is_external_link(dest) {
             if self.get_config().elements.links.nofollow_external {
-                self.write_str(" rel=\"nofollow\"");
+                self.write_str("\" rel=\"nofollow");
             }
             if self.get_config().elements.links.open_external_blank {
-                self.write_str(" target=\"_blank\"");
+                self.write_str("\" target=\"_blank");
             }
         }
 
+        self.write_str("\"");
         self.write_attributes("a");
         self.write_str(">");
     }
@@ -339,38 +330,38 @@ pub trait HtmlWriter {
     }
 
     // Image parsing requires lookahead to capture events that need to be parsed into `alt` attr
-    fn start_image<'b, I>(
+    fn start_image<'a, I>(
         &mut self,
         _link_type: LinkType,
         dest: &str,
         title: &str,
         iter: &mut Peekable<I>,
     ) where
-        I: Iterator<Item = Event<'b>>,
+        I: Iterator<Item = Event<'a>>,
     {
-        // Start an image tag by writing the opening <img> element. Unlike other tag handlers,
-        // this requires access to the parser's event iterator because the alt text content
-        // appears as Text events *after* the Image tag rather than between Start/End events.
-        // This means we need to peek ahead in the event stream to collect the alt text before
-        // writing the tag.
+        // Start image tag
         self.write_str("<img src=\"");
-        escape_href(self.get_output(), dest);
-        self.write_str("\"");
+        let _ = escape_href(self.get_writer(), dest);
+        self.write_str("\" alt=\"");
 
-        self.write_str(r#" alt=""#);
-        // Collect and write the alt text
+        // Collect and write the alt text by consuming events until we reach the end of the image
         let alt_text = self.collect_alt_text(iter);
-        escape_html(self.get_output(), &alt_text);
+
+        // Write escaped alt text
+        let _ = escape_html(self.get_writer(), &alt_text);
         self.write_str("\"");
 
+        // Add title if present
         if !title.is_empty() {
-            self.write_str(r#" title=""#);
-            escape_html(self.get_output(), title);
+            self.write_str(" title=\"");
+            let _ = escape_html(self.get_writer(), title);
             self.write_str("\"");
         }
 
+        // Add any custom attributes
         self.write_attributes("img");
 
+        // Close the tag according to configuration
         if self.get_config().html.xhtml_style {
             self.write_str(" />");
         } else {
@@ -429,16 +420,14 @@ pub trait HtmlWriter {
 
     fn text(&mut self, text: &str) {
         if self.get_config().html.escape_html {
-            let mut escaped = String::new();
-            escape_html(&mut escaped, text);
-            self.write_str(&escaped);
+            let _ = escape_html_body_text(&mut self.get_writer(), text);
         } else {
             self.write_str(text);
         }
     }
 
     fn html_raw(&mut self, html: &CowStr) {
-        self.write_str(&html)
+        self.write_str(html)
     }
 
     fn collect_alt_text<'a, I>(&self, iter: &mut Peekable<I>) -> String
@@ -476,37 +465,32 @@ pub trait HtmlWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pulldown_cmark_escape::FmtWriter;
 
-    struct TestHandler {
-        output: String,
+    struct TestHandler<W: StrWrite> {
+        writer: W,
         config: HtmlConfig,
         state: HtmlState,
     }
 
-    impl TestHandler {
-        fn new() -> Self {
+    impl<W: StrWrite> TestHandler<W> {
+        fn new(writer: W) -> Self {
             let mut config = HtmlConfig::default();
             config.html.break_on_newline = false;
-            let state = HtmlState::new();
             Self {
-                output: String::new(),
+                writer,
                 config,
-                state,
+                state: HtmlState::new(),
             }
-        }
-
-        fn get_output(&self) -> &str {
-            &self.output
         }
     }
 
-    impl HtmlWriter for TestHandler {
+    impl<W: StrWrite> HtmlWriter<W> for TestHandler<W> {
+        fn get_writer(&mut self) -> &mut W {
+            &mut self.writer
+        }
         fn get_config(&self) -> &HtmlConfig {
             &self.config
-        }
-
-        fn get_output(&mut self) -> &mut String {
-            &mut self.output
         }
 
         fn get_state(&mut self) -> &mut HtmlState {
@@ -516,102 +500,107 @@ mod tests {
 
     #[test]
     fn test_paragraph() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_paragraph();
         handler.text("Hello world");
         handler.end_paragraph();
-        assert_eq!(handler.get_output(), "<p>Hello world</p>");
+        assert_eq!(output, "<p>Hello world</p>");
     }
 
     #[test]
     fn test_blockquote() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_blockquote();
         handler.text("Quote");
         handler.end_blockquote();
-        assert_eq!(handler.get_output(), "<blockquote>Quote</blockquote>");
+        assert_eq!(output, "<blockquote>Quote</blockquote>");
     }
 
     #[test]
     fn test_emphasis() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_emphasis();
         handler.text("emphasized");
         handler.end_emphasis();
-        assert_eq!(handler.get_output(), "<em>emphasized</em>");
+        assert_eq!(output, "<em>emphasized</em>");
     }
 
     #[test]
     fn test_strong() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_strong();
         handler.text("bold");
         handler.end_strong();
-        assert_eq!(handler.get_output(), "<strong>bold</strong>");
+        assert_eq!(output, "<strong>bold</strong>");
     }
 
     #[test]
     fn test_strikethrough() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_strikethrough();
         handler.text("strike");
         handler.end_strikethrough();
-        assert_eq!(handler.get_output(), "<del>strike</del>");
+        assert_eq!(output, "<del>strike</del>");
     }
 
     #[test]
     fn test_inline_code() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_inline_code();
         handler.text("code");
         handler.end_inline_code();
-        assert_eq!(handler.get_output(), "<code>code</code>");
+        assert_eq!(output, "<code>code</code>");
     }
 
     #[test]
     fn test_line_breaks() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.soft_break();
         handler.hard_break();
-        assert_eq!(handler.get_output(), "\n<br>");
+        assert_eq!(output, "\n<br>");
     }
 
     #[test]
     fn test_horizontal_rule() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.horizontal_rule();
-        assert_eq!(handler.get_output(), "<hr>");
+        assert_eq!(output, "<hr>");
     }
 
     #[test]
     fn test_task_list() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.task_list_item(true);
         handler.text("Done");
 
-        assert_eq!(
-            handler.get_output(),
-            "<input type=\"checkbox\" disabled checked>Done"
-        );
+        assert_eq!(output, "<input type=\"checkbox\" disabled checked>Done");
 
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.task_list_item(false);
         handler.text("Todo");
 
-        assert_eq!(
-            handler.get_output(),
-            "<input type=\"checkbox\" disabled>Todo"
-        );
+        assert_eq!(output, "<input type=\"checkbox\" disabled>Todo");
     }
 
     #[test]
     fn test_footnote_definition() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.start_footnote_definition("1");
         handler.text("Footnote content");
         handler.end_footnote_definition();
         assert_eq!(
-            handler.get_output(),
+            output,
             "<div class=\"footnote-definition\" id=\"1\">\
              <sup class=\"footnote-definition-label\">1</sup>\
              Footnote content</div>"
@@ -620,25 +609,25 @@ mod tests {
 
     #[test]
     fn test_list_endings() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.end_list(true);
-        assert_eq!(handler.get_output(), "</ol>");
+        assert_eq!(output, "</ol>");
 
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.end_list(false);
-        assert_eq!(handler.get_output(), "</ul>");
+        assert_eq!(output, "</ul>");
     }
 
     #[test]
     fn test_table_structure() {
-        let mut handler = TestHandler::new();
+        let mut output = String::new();
+        let mut handler = TestHandler::new(FmtWriter(&mut output));
         handler.end_table_head();
         handler.end_table_row();
         handler.end_table_cell();
         handler.end_table();
-        assert_eq!(
-            handler.get_output(),
-            "</tr></thead><tbody></tr></td></tbody></table>"
-        );
+        assert_eq!(output, "</tr></thead><tbody></tr></td></tbody></table>");
     }
 }
