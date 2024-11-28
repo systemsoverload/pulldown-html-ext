@@ -1,7 +1,11 @@
+use crate::html::ListContext;
+use crate::html::TableContext;
+
+use pulldown_cmark::CowStr;
 use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, LinkType};
 use std::iter::Peekable;
 
-use crate::renderer_state::{ListType, RendererState};
+use crate::html::state::HtmlState;
 use crate::utils::{escape_href, escape_html};
 use crate::HtmlConfig;
 
@@ -31,7 +35,7 @@ pub trait HtmlWriter {
 
     fn get_output(&mut self) -> &mut String;
 
-    fn get_state(&mut self) -> &mut RendererState;
+    fn get_state(&mut self) -> &mut HtmlState;
 
     /// Check if a URL points to an external resource
     fn is_external_link(&self, url: &str) -> bool {
@@ -179,7 +183,7 @@ pub trait HtmlWriter {
                 self.get_state().numbers.push(n.try_into().unwrap());
                 self.get_state()
                     .list_stack
-                    .push(ListType::Ordered(n.try_into().unwrap()));
+                    .push(ListContext::Ordered(n.try_into().unwrap()));
                 self.write_str("<ol");
                 if n != 1 {
                     self.write_str(&format!(" start=\"{}\"", n));
@@ -188,7 +192,7 @@ pub trait HtmlWriter {
                 self.write_str(">");
             }
             None => {
-                self.get_state().list_stack.push(ListType::Unordered);
+                self.get_state().list_stack.push(ListContext::Unordered);
                 self.write_str("<ul");
                 self.write_attributes("ul");
                 self.write_str(">");
@@ -210,7 +214,7 @@ pub trait HtmlWriter {
     }
 
     fn start_table(&mut self, alignments: Vec<Alignment>) {
-        self.get_state().table_state = super::renderer_state::TableState::InHeader;
+        self.get_state().table_state = TableContext::InHeader;
         self.get_state().table_alignments = alignments;
         self.write_str("<table");
         self.write_attributes("table");
@@ -233,8 +237,8 @@ pub trait HtmlWriter {
     fn start_table_row(&mut self) {
         self.get_state().table_cell_index = 0;
         // When starting a row after the header, we're in the body
-        if self.get_state().table_state == super::renderer_state::TableState::InHeader {
-            self.get_state().table_state = super::renderer_state::TableState::InBody;
+        if self.get_state().table_state == TableContext::InHeader {
+            self.get_state().table_state = TableContext::InBody;
         }
         self.write_str("<tr>");
     }
@@ -245,7 +249,7 @@ pub trait HtmlWriter {
 
     fn start_table_cell(&mut self) {
         let tag = match self.get_state().table_state {
-            super::renderer_state::TableState::InHeader => "th",
+            TableContext::InHeader => "th",
             _ => "td",
         };
 
@@ -375,16 +379,12 @@ pub trait HtmlWriter {
     }
     fn end_image(&mut self) {}
 
-    fn start_footnote_reference(&mut self, name: &str) {
+    fn footnote_reference(&mut self, name: &str) {
         self.write_str("<sup class=\"footnote-reference\"><a href=\"#");
         self.write_str(name);
         self.write_str("\">");
         self.write_str(name);
         self.write_str("</a></sup>");
-    }
-
-    fn end_footnote_reference(&mut self) {
-        self.write_str("</sup>");
     }
 
     fn start_footnote_definition(&mut self, name: &str) {
@@ -402,15 +402,13 @@ pub trait HtmlWriter {
     }
 
     // Task list handlers
-    fn start_task_list_item(&mut self, checked: bool) {
+    fn task_list_item(&mut self, checked: bool) {
         self.write_str("<input type=\"checkbox\" disabled");
         if checked {
             self.write_str(" checked");
         }
         self.write_str(">");
     }
-
-    fn end_task_list_item(&mut self) {}
 
     // Special elements - simple HTML
     fn horizontal_rule(&mut self) {
@@ -432,11 +430,15 @@ pub trait HtmlWriter {
     fn text(&mut self, text: &str) {
         if self.get_config().html.escape_html {
             let mut escaped = String::new();
-            super::utils::escape_html(&mut escaped, text);
+            escape_html(&mut escaped, text);
             self.write_str(&escaped);
         } else {
             self.write_str(text);
         }
+    }
+
+    fn html_raw(&mut self, html: &CowStr) {
+        self.write_str(&html)
     }
 
     fn collect_alt_text<'a, I>(&self, iter: &mut Peekable<I>) -> String
@@ -478,14 +480,14 @@ mod tests {
     struct TestHandler {
         output: String,
         config: HtmlConfig,
-        state: RendererState,
+        state: HtmlState,
     }
 
     impl TestHandler {
         fn new() -> Self {
             let mut config = HtmlConfig::default();
             config.html.break_on_newline = false;
-            let state = RendererState::new();
+            let state = HtmlState::new();
             Self {
                 output: String::new(),
                 config,
@@ -507,7 +509,7 @@ mod tests {
             &mut self.output
         }
 
-        fn get_state(&mut self) -> &mut RendererState {
+        fn get_state(&mut self) -> &mut HtmlState {
             &mut self.state
         }
     }
@@ -584,18 +586,18 @@ mod tests {
     #[test]
     fn test_task_list() {
         let mut handler = TestHandler::new();
-        handler.start_task_list_item(true);
+        handler.task_list_item(true);
         handler.text("Done");
-        handler.end_task_list_item();
+
         assert_eq!(
             handler.get_output(),
             "<input type=\"checkbox\" disabled checked>Done"
         );
 
         let mut handler = TestHandler::new();
-        handler.start_task_list_item(false);
+        handler.task_list_item(false);
         handler.text("Todo");
-        handler.end_task_list_item();
+
         assert_eq!(
             handler.get_output(),
             "<input type=\"checkbox\" disabled>Todo"

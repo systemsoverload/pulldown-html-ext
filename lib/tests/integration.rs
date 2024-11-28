@@ -6,7 +6,7 @@ use std::collections::HashMap;
 fn render_with_config(input: &str, config: &HtmlConfig) -> String {
     let mut output = String::new();
     let handler = DefaultHtmlWriter::new(&mut output, config);
-    let mut renderer = Renderer::new(handler);
+    let mut renderer = HtmlRenderer::new(handler);
     renderer.run(Parser::new(input));
     output
 }

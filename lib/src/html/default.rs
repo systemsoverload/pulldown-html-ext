@@ -1,9 +1,9 @@
-use crate::config::HtmlConfig;
-use crate::renderer_state::RendererState;
-use crate::tag_handler::HtmlWriter;
+use crate::html::config::HtmlConfig;
+use crate::html::state::HtmlState;
+use crate::html::writer::HtmlWriter;
 
 pub struct DefaultHtmlWriter<'a> {
-    pub(crate) state: RendererState,
+    pub(crate) state: HtmlState,
     pub(crate) config: &'a HtmlConfig,
     pub(crate) output: &'a mut String,
 }
@@ -11,7 +11,7 @@ pub struct DefaultHtmlWriter<'a> {
 impl<'a> DefaultHtmlWriter<'a> {
     pub fn new(output: &'a mut String, config: &'a HtmlConfig) -> Self {
         Self {
-            state: RendererState::new(),
+            state: HtmlState::new(),
             config,
             output,
         }
@@ -27,7 +27,7 @@ impl<'a> HtmlWriter for DefaultHtmlWriter<'a> {
         self.output
     }
 
-    fn get_state(&mut self) -> &mut RendererState {
+    fn get_state(&mut self) -> &mut HtmlState {
         &mut self.state
     }
 }

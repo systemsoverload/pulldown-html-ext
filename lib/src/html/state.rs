@@ -2,7 +2,7 @@ use pulldown_cmark::{Alignment, LinkType};
 
 /// Represents the current state of table parsing
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
-pub enum TableState {
+pub enum TableContext {
     /// Not currently within a table
     #[default]
     NotInTable,
@@ -14,7 +14,7 @@ pub enum TableState {
 
 /// Represents the type of list currently being processed
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
-pub enum ListType {
+pub enum ListContext {
     /// An ordered list (<ol>) with a starting number
     Ordered(u32),
     /// An unordered list (<ul>)
@@ -23,17 +23,17 @@ pub enum ListType {
 }
 
 /// Maintains the state of the HTML rendering process
-pub struct RendererState {
+pub struct HtmlState {
     /// Stack for tracking list numbers in ordered lists
     pub numbers: Vec<u32>,
     /// Current state of table processing
-    pub table_state: TableState,
+    pub table_state: TableContext,
     /// Current index when processing table cells
     pub table_cell_index: usize,
     /// Alignments for table columns
     pub table_alignments: Vec<Alignment>,
     /// Stack for tracking nested lists
-    pub list_stack: Vec<ListType>,
+    pub list_stack: Vec<ListContext>,
     /// Stack for tracking nested links
     pub link_stack: Vec<LinkType>,
     /// Stack for tracking heading IDs
@@ -44,12 +44,12 @@ pub struct RendererState {
     pub currently_in_footnote: bool,
 }
 
-impl RendererState {
+impl HtmlState {
     /// Create a new renderer state with default values
     pub fn new() -> Self {
         Self {
             numbers: Vec::new(),
-            table_state: TableState::default(),
+            table_state: TableContext::default(),
             table_cell_index: 0,
             table_alignments: Vec::new(),
             list_stack: Vec::new(),
@@ -64,7 +64,7 @@ impl RendererState {
     /// Reset all state, typically called between document renders
     pub fn reset(&mut self) {
         self.numbers.clear();
-        self.table_state = TableState::default();
+        self.table_state = TableContext::default();
         self.table_cell_index = 0;
         self.table_alignments.clear();
         self.list_stack.clear();
@@ -76,13 +76,13 @@ impl RendererState {
     #[allow(dead_code)]
     /// Check if currently inside a table
     pub fn in_table(&self) -> bool {
-        self.table_state != TableState::NotInTable
+        self.table_state != TableContext::NotInTable
     }
 
     #[allow(dead_code)]
     /// Check if currently in a table header
     pub fn in_table_header(&self) -> bool {
-        self.table_state == TableState::InHeader
+        self.table_state == TableContext::InHeader
     }
 
     #[allow(dead_code)]
@@ -93,12 +93,12 @@ impl RendererState {
 
     #[allow(dead_code)]
     /// Get the current list type, if any
-    pub fn current_list_type(&self) -> Option<ListType> {
+    pub fn current_list_type(&self) -> Option<ListContext> {
         self.list_stack.last().copied()
     }
 }
 
-impl Default for RendererState {
+impl Default for HtmlState {
     fn default() -> Self {
         Self::new()
     }
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn test_renderer_state_new() {
-        let state = RendererState::new();
-        assert_eq!(state.table_state, TableState::NotInTable);
+        let state = HtmlState::new();
+        assert_eq!(state.table_state, TableContext::NotInTable);
         assert_eq!(state.table_cell_index, 0);
         assert!(state.numbers.is_empty());
         assert!(state.table_alignments.is_empty());
@@ -123,20 +123,20 @@ mod tests {
 
     #[test]
     fn test_renderer_state_reset() {
-        let mut state = RendererState::new();
+        let mut state = HtmlState::new();
 
         // Modify state
         state.numbers.push(1);
-        state.table_state = TableState::InHeader;
+        state.table_state = TableContext::InHeader;
         state.table_cell_index = 2;
-        state.list_stack.push(ListType::Ordered(1));
+        state.list_stack.push(ListContext::Ordered(1));
         state.currently_in_code_block = true;
 
         // Reset
         state.reset();
 
         // Verify reset
-        assert_eq!(state.table_state, TableState::NotInTable);
+        assert_eq!(state.table_state, TableContext::NotInTable);
         assert_eq!(state.table_cell_index, 0);
         assert!(state.numbers.is_empty());
         assert!(state.list_stack.is_empty());
@@ -145,32 +145,32 @@ mod tests {
 
     #[test]
     fn test_list_operations() {
-        let mut state = RendererState::new();
+        let mut state = HtmlState::new();
 
         assert_eq!(state.list_depth(), 0);
         assert_eq!(state.current_list_type(), None);
 
-        state.list_stack.push(ListType::Unordered);
+        state.list_stack.push(ListContext::Unordered);
         assert_eq!(state.list_depth(), 1);
-        assert_eq!(state.current_list_type(), Some(ListType::Unordered));
+        assert_eq!(state.current_list_type(), Some(ListContext::Unordered));
 
-        state.list_stack.push(ListType::Ordered(1));
+        state.list_stack.push(ListContext::Ordered(1));
         assert_eq!(state.list_depth(), 2);
-        assert_eq!(state.current_list_type(), Some(ListType::Ordered(1)));
+        assert_eq!(state.current_list_type(), Some(ListContext::Ordered(1)));
     }
 
     #[test]
     fn test_table_state() {
-        let mut state = RendererState::new();
+        let mut state = HtmlState::new();
 
         assert!(!state.in_table());
         assert!(!state.in_table_header());
 
-        state.table_state = TableState::InHeader;
+        state.table_state = TableContext::InHeader;
         assert!(state.in_table());
         assert!(state.in_table_header());
 
-        state.table_state = TableState::InBody;
+        state.table_state = TableContext::InBody;
         assert!(state.in_table());
         assert!(!state.in_table_header());
     }
