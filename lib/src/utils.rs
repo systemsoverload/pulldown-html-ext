@@ -16,6 +16,7 @@ use pulldown_cmark::escape::StrWrite;
 /// assert_eq!(output, "&lt;div&gt;test&lt;/div&gt;");
 /// ```
 pub fn escape_html(output: &mut String, text: &str) {
+    // TODO - Opt for using the `pulldown-cmark-escape` crate here
     for c in text.chars() {
         match c {
             '<' => output.push_str("&lt;"),
