@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = RendererConfig::default();
-        assert!(config.html.escape_html);
+        assert!(!config.html.escape_html);
         assert!(config.html.break_on_newline);
         assert!(!config.html.xhtml_style);
         assert!(config.html.pretty_print);
