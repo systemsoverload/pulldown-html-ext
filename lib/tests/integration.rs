@@ -183,6 +183,7 @@ fn test_mixed_config_blog_style() {
     config.html.break_on_newline = false;
     config.elements.headings.add_ids = true;
     config.elements.links.open_external_blank = true;
+    config.elements.links.nofollow_external = false;
 
     let mut heading_classes = HashMap::new();
     heading_classes.insert(1, "post-title".to_string());
@@ -209,6 +210,7 @@ fn test_mixed_config_documentation_style() {
     config.elements.headings.id_prefix = "doc-".to_string();
     config.elements.code_blocks.default_language = Some("text".to_string());
     config.elements.links.nofollow_external = true;
+    config.elements.links.open_external_blank = false;
 
     let mut element_attrs = HashMap::new();
     let mut pre_attrs = HashMap::new();
