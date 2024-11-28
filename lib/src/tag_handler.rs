@@ -1,35 +1,116 @@
-use pulldown_cmark::{Alignment, CodeBlockKind, HeadingLevel, LinkType};
+use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, LinkType};
+use std::iter::Peekable;
+
+use crate::renderer_state::{ListType, RendererState};
+use crate::utils::{escape_href, escape_html};
+use crate::RendererConfig;
 
 /// Trait for handling Markdown tag rendering to HTML
 pub trait TagHandler {
     /// Write a string directly to the output
-    fn write_str(&mut self, s: &str);
+    fn write_str(&mut self, s: &str) {
+        self.get_output().push_str(s);
+    }
 
     /// Write HTML attributes for a given element
-    fn write_attributes(&mut self, element: &str);
+    fn write_attributes(&mut self, element: &str) {
+        let mut attrs_string = String::new();
+
+        if let Some(attrs) = self.get_config().attributes.element_attributes.get(element) {
+            for (key, value) in attrs {
+                attrs_string.push_str(&format!(" {}=\"{}\"", key, value));
+            }
+        }
+
+        if !attrs_string.is_empty() {
+            self.write_str(&attrs_string);
+        }
+    }
+
+    fn get_config(&self) -> &RendererConfig;
+
+    fn get_output(&mut self) -> &mut String;
+
+    fn get_state(&mut self) -> &mut RendererState;
 
     /// Check if a URL points to an external resource
-    fn is_external_link(&self, url: &str) -> bool;
+    fn is_external_link(&self, url: &str) -> bool {
+        // TODO - This is probably incorrect
+        url.starts_with("http://") || url.starts_with("https://")
+    }
 
     /// Convert a HeadingLevel to a numeric level
-    fn heading_level_to_u8(&self, level: HeadingLevel) -> u8;
+    fn heading_level_to_u8(&self, level: HeadingLevel) -> u8 {
+        match level {
+            HeadingLevel::H1 => 1,
+            HeadingLevel::H2 => 2,
+            HeadingLevel::H3 => 3,
+            HeadingLevel::H4 => 4,
+            HeadingLevel::H5 => 5,
+            HeadingLevel::H6 => 6,
+        }
+    }
 
-    /// Generate an ID for a heading
-    fn generate_heading_id(&self, level: HeadingLevel) -> String;
+    fn generate_heading_id(&self, level: HeadingLevel) -> String {
+        let level_num = self.heading_level_to_u8(level);
+        format!(
+            "{}{}",
+            self.get_config().elements.headings.id_prefix,
+            level_num
+        )
+    }
 
-    // Text block handlers - these need custom implementations due to attributes/state
     fn start_paragraph(&mut self) {
-        self.write_str("<p");
-        self.write_attributes("p");
-        self.write_str(">");
+        // Don't create paragraph tags inside footnote definitions
+        if !self.get_state().currently_in_footnote {
+            self.write_str("<p");
+            self.write_attributes("p");
+            self.write_str(">");
+        }
     }
 
     fn end_paragraph(&mut self) {
-        self.write_str("</p>");
+        if !self.get_state().currently_in_footnote {
+            self.write_str("</p>");
+        }
     }
 
     // Heading handlers need custom implementation for IDs and classes
-    fn start_heading(&mut self, level: HeadingLevel, id: Option<&str>, classes: Vec<&str>);
+    fn start_heading(&mut self, level: HeadingLevel, id: Option<&str>, classes: Vec<&str>) {
+        let tag = format!("h{}", self.heading_level_to_u8(level));
+        self.write_str(&format!("<{}", tag));
+
+        if self.get_config().elements.headings.add_ids {
+            let heading_id = match id {
+                Some(id) => id.to_string(),
+                None => self.generate_heading_id(level),
+            };
+            self.write_str(&format!(" id=\"{}\"", heading_id));
+            self.get_state().heading_stack.push(heading_id);
+        }
+
+        let mut all_classes = Vec::new();
+        let level_num = self.heading_level_to_u8(level);
+        if let Some(level_class) = self
+            .get_config()
+            .elements
+            .headings
+            .level_classes
+            .get(&level_num)
+        {
+            all_classes.push(level_class.clone());
+        }
+        all_classes.extend(classes.into_iter().map(|s| s.to_string()));
+
+        if !all_classes.is_empty() {
+            self.write_str(" class=\"");
+            self.write_str(&all_classes.join(" "));
+            self.write_str("\"");
+        }
+
+        self.write_attributes(&tag);
+        self.write_str(">");
+    }
 
     fn end_heading(&mut self, level: HeadingLevel) {
         self.write_str(&format!("</h{}>", self.heading_level_to_u8(level)));
@@ -45,8 +126,38 @@ pub trait TagHandler {
         self.write_str("</blockquote>");
     }
 
-    // Code handlers - need custom implementation for language handling
-    fn start_code_block(&mut self, kind: CodeBlockKind);
+    fn start_code_block(&mut self, kind: CodeBlockKind) {
+        self.get_state().currently_in_code_block = true;
+        self.write_str("<pre");
+        self.write_attributes("pre");
+        self.write_str("><code");
+
+        match kind {
+            CodeBlockKind::Fenced(info) => {
+                let lang = if info.is_empty() {
+                    self.get_config()
+                        .elements
+                        .code_blocks
+                        .default_language
+                        .as_deref()
+                } else {
+                    Some(&*info)
+                };
+
+                if let Some(lang) = lang {
+                    self.write_str(&format!(" class=\"language-{}\"", lang));
+                }
+            }
+            CodeBlockKind::Indented => {
+                if let Some(lang) = &self.get_config().elements.code_blocks.default_language {
+                    self.write_str(&format!(" class=\"language-{}\"", lang));
+                }
+            }
+        }
+
+        self.write_attributes("code");
+        self.write_str(">");
+    }
     fn end_code_block(&mut self) {
         self.write_str("</code></pre>");
     }
@@ -62,7 +173,28 @@ pub trait TagHandler {
     }
 
     // List handlers - need custom implementation for ordered/unordered handling
-    fn start_list(&mut self, first_number: Option<u64>);
+    fn start_list(&mut self, first_number: Option<u64>) {
+        match first_number {
+            Some(n) => {
+                self.get_state().numbers.push(n.try_into().unwrap());
+                self.get_state()
+                    .list_stack
+                    .push(ListType::Ordered(n.try_into().unwrap()));
+                self.write_str("<ol");
+                if n != 1 {
+                    self.write_str(&format!(" start=\"{}\"", n));
+                }
+                self.write_attributes("ol");
+                self.write_str(">");
+            }
+            None => {
+                self.get_state().list_stack.push(ListType::Unordered);
+                self.write_str("<ul");
+                self.write_attributes("ul");
+                self.write_str(">");
+            }
+        }
+    }
     fn end_list(&mut self, ordered: bool) {
         self.write_str(if ordered { "</ol>" } else { "</ul>" });
     }
@@ -77,18 +209,33 @@ pub trait TagHandler {
         self.write_str("</li>");
     }
 
-    // Table handlers - need custom implementation for alignment/state
-    fn start_table(&mut self, alignments: Vec<Alignment>);
+    fn start_table(&mut self, alignments: Vec<Alignment>) {
+        self.get_state().table_state = super::renderer_state::TableState::InHeader;
+        self.get_state().table_alignments = alignments;
+        self.write_str("<table");
+        self.write_attributes("table");
+        self.write_str(">");
+    }
+
     fn end_table(&mut self) {
         self.write_str("</tbody></table>");
     }
 
-    fn start_table_head(&mut self);
+    fn start_table_head(&mut self) {
+        self.get_state().table_cell_index = 0;
+        self.write_str("<thead><tr>");
+    }
+
     fn end_table_head(&mut self) {
         self.write_str("</tr></thead><tbody>");
     }
 
     fn start_table_row(&mut self) {
+        self.get_state().table_cell_index = 0;
+        // When starting a row after the header, we're in the body
+        if self.get_state().table_state == super::renderer_state::TableState::InHeader {
+            self.get_state().table_state = super::renderer_state::TableState::InBody;
+        }
         self.write_str("<tr>");
     }
 
@@ -96,7 +243,29 @@ pub trait TagHandler {
         self.write_str("</tr>");
     }
 
-    fn start_table_cell(&mut self); // Needs custom implementation for th/td
+    fn start_table_cell(&mut self) {
+        let tag = match self.get_state().table_state {
+            super::renderer_state::TableState::InHeader => "th",
+            _ => "td",
+        };
+
+        self.write_str("<");
+        self.write_str(tag);
+        let idx = self.get_state().table_cell_index;
+        if let Some(alignment) = self.get_state().table_alignments.get(idx) {
+            match alignment {
+                Alignment::Left => self.write_str(" style=\"text-align: left\""),
+                Alignment::Center => self.write_str(" style=\"text-align: center\""),
+                Alignment::Right => self.write_str(" style=\"text-align: right\""),
+                Alignment::None => {}
+            }
+        }
+
+        self.write_attributes(tag);
+        self.write_str(">");
+
+        self.get_state().table_cell_index += 1;
+    }
     fn end_table_cell(&mut self) {
         self.write_str("</td>");
     }
@@ -133,18 +302,87 @@ pub trait TagHandler {
     }
 
     // Link and media handlers - need custom implementation for external link handling
-    fn start_link(&mut self, link_type: LinkType, dest: &str, title: &str);
+    fn start_link(&mut self, _link_type: LinkType, dest: &str, title: &str) {
+        // FIXME
+        // self.state.link_stack.push(link_type);
+
+        self.write_str("<a href=\"");
+        escape_href(self.get_output(), dest);
+        self.write_str("\"");
+
+        if !title.is_empty() {
+            self.write_str(" title=\"");
+            escape_html(self.get_output(), title);
+            self.write_str("\"");
+        }
+
+        // Apply link options from config for external links
+        if self.is_external_link(dest) {
+            if self.get_config().elements.links.nofollow_external {
+                self.write_str(" rel=\"nofollow\"");
+            }
+            if self.get_config().elements.links.open_external_blank {
+                self.write_str(" target=\"_blank\"");
+            }
+        }
+
+        self.write_attributes("a");
+        self.write_str(">");
+    }
 
     fn end_link(&mut self) {
         self.write_str("</a>");
     }
 
-    // Image doesn't need an end tag, but the start needs custom implementation
-    fn start_image(&mut self, link_type: LinkType, dest: &str, title: &str);
+    // Image parsing requires lookahead to capture events that need to be parsed into `alt` attr
+    fn start_image<'b, I>(
+        &mut self,
+        _link_type: LinkType,
+        dest: &str,
+        title: &str,
+        iter: &mut Peekable<I>,
+    ) where
+        I: Iterator<Item = Event<'b>>,
+    {
+        // Start an image tag by writing the opening <img> element. Unlike other tag handlers,
+        // this requires access to the parser's event iterator because the alt text content
+        // appears as Text events *after* the Image tag rather than between Start/End events.
+        // This means we need to peek ahead in the event stream to collect the alt text before
+        // writing the tag.
+        self.write_str("<img src=\"");
+        escape_href(self.get_output(), dest);
+        self.write_str("\"");
+
+        self.write_str(r#" alt=""#);
+        // Collect and write the alt text
+        let alt_text = self.collect_alt_text(iter);
+        escape_html(self.get_output(), &alt_text);
+        self.write_str("\"");
+
+        if !title.is_empty() {
+            self.write_str(r#" title=""#);
+            escape_html(self.get_output(), title);
+            self.write_str("\"");
+        }
+
+        self.write_attributes("img");
+
+        if self.get_config().html.xhtml_style {
+            self.write_str(" />");
+        } else {
+            self.write_str(">");
+        }
+    }
     fn end_image(&mut self) {}
 
-    // Footnote handlers - need custom implementation for state/ID handling
-    fn start_footnote_reference(&mut self, name: &str);
+    fn start_footnote_reference(&mut self, name: &str) {
+        self.write_str("<sup class=\"footnote-reference\"><a href=\"#");
+        self.write_str(name);
+        self.write_str("\">");
+        self.write_str(name);
+        self.write_str("</a></sup>");
+    }
+
     fn end_footnote_reference(&mut self) {
         self.write_str("</sup>");
     }
@@ -155,9 +393,12 @@ pub trait TagHandler {
         self.write_str("\"><sup class=\"footnote-definition-label\">");
         self.write_str(name);
         self.write_str("</sup>");
+        self.get_state().currently_in_footnote = true;
     }
+
     fn end_footnote_definition(&mut self) {
         self.write_str("</div>");
+        self.get_state().currently_in_footnote = false;
     }
 
     // Task list handlers
@@ -177,7 +418,11 @@ pub trait TagHandler {
     }
 
     fn soft_break(&mut self) {
-        self.write_str("\n");
+        if self.get_config().html.break_on_newline {
+            self.write_str("<br>");
+        } else {
+            self.write_str("\n");
+        }
     }
 
     fn hard_break(&mut self) {
@@ -185,7 +430,44 @@ pub trait TagHandler {
     }
 
     fn text(&mut self, text: &str) {
-        self.write_str(text);
+        if self.get_config().html.escape_html {
+            let mut escaped = String::new();
+            super::utils::escape_html(&mut escaped, text);
+            self.write_str(&escaped);
+        } else {
+            self.write_str(text);
+        }
+    }
+
+    fn collect_alt_text<'a, I>(&self, iter: &mut Peekable<I>) -> String
+    where
+        I: Iterator<Item = Event<'a>>,
+    {
+        let mut alt = String::new();
+        let mut nest = 0;
+
+        for event in iter.by_ref() {
+            match event {
+                Event::Start(_) => nest += 1,
+                Event::End(_) => {
+                    if nest == 0 {
+                        break;
+                    }
+                    nest -= 1;
+                }
+                Event::Text(text) => {
+                    alt.push_str(&text);
+                }
+                Event::Code(text) => {
+                    alt.push_str(&text);
+                }
+                Event::SoftBreak | Event::HardBreak => {
+                    alt.push(' ');
+                }
+                _ => {}
+            }
+        }
+        alt
     }
 }
 
@@ -193,15 +475,21 @@ pub trait TagHandler {
 mod tests {
     use super::*;
 
-    // Minimal implementation just for testing default methods
     struct TestHandler {
         output: String,
+        config: RendererConfig,
+        state: RendererState,
     }
 
     impl TestHandler {
         fn new() -> Self {
+            let mut config = RendererConfig::default();
+            config.html.break_on_newline = false;
+            let state = RendererState::new();
             Self {
                 output: String::new(),
+                config,
+                state,
             }
         }
 
@@ -211,88 +499,16 @@ mod tests {
     }
 
     impl TagHandler for TestHandler {
-        fn write_str(&mut self, s: &str) {
-            self.output.push_str(s);
+        fn get_config(&self) -> &RendererConfig {
+            &self.config
         }
 
-        fn write_attributes(&mut self, _element: &str) {
-            // No attributes for testing
+        fn get_output(&mut self) -> &mut String {
+            &mut self.output
         }
 
-        fn is_external_link(&self, url: &str) -> bool {
-            url.starts_with("http://") || url.starts_with("https://")
-        }
-
-        fn heading_level_to_u8(&self, level: HeadingLevel) -> u8 {
-            match level {
-                HeadingLevel::H1 => 1,
-                HeadingLevel::H2 => 2,
-                HeadingLevel::H3 => 3,
-                HeadingLevel::H4 => 4,
-                HeadingLevel::H5 => 5,
-                HeadingLevel::H6 => 6,
-            }
-        }
-
-        fn generate_heading_id(&self, level: HeadingLevel) -> String {
-            format!("heading-{}", self.heading_level_to_u8(level))
-        }
-
-        // Required methods that need custom implementation
-        fn start_heading(&mut self, level: HeadingLevel, _id: Option<&str>, _classes: Vec<&str>) {
-            self.write_str(&format!("<h{}>", self.heading_level_to_u8(level)));
-        }
-
-        fn start_code_block(&mut self, _kind: CodeBlockKind) {
-            self.write_str("<pre><code>");
-        }
-
-        fn start_list(&mut self, first_number: Option<u64>) {
-            match first_number {
-                Some(_) => self.write_str("<ol>"),
-                None => self.write_str("<ul>"),
-            }
-        }
-
-        fn start_table(&mut self, _alignments: Vec<Alignment>) {
-            self.write_str("<table>");
-        }
-
-        fn start_table_head(&mut self) {
-            self.write_str("<thead><tr>");
-        }
-
-        fn start_table_cell(&mut self) {
-            self.write_str("<td>");
-        }
-
-        fn start_link(&mut self, _link_type: LinkType, dest: &str, title: &str) {
-            self.write_str("<a href=\"");
-            self.write_str(dest);
-            if !title.is_empty() {
-                self.write_str("\" title=\"");
-                self.write_str(title);
-            }
-            self.write_str("\">");
-        }
-
-        fn start_image(&mut self, _link_type: LinkType, dest: &str, title: &str) {
-            self.write_str("<img src=\"");
-            self.write_str(dest);
-            self.write_str("\" alt=\"");
-            if !title.is_empty() {
-                self.write_str("\" title=\"");
-                self.write_str(title);
-            }
-            self.write_str("\">");
-        }
-
-        fn start_footnote_reference(&mut self, name: &str) {
-            self.write_str("<sup class=\"footnote-reference\"><a href=\"#");
-            self.write_str(name);
-            self.write_str("\">");
-            self.write_str(name);
-            self.write_str("</a></sup>");
+        fn get_state(&mut self) -> &mut RendererState {
+            &mut self.state
         }
     }
 
