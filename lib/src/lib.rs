@@ -27,6 +27,7 @@ pub use config::{
 };
 pub use default_handler::DefaultTagHandler;
 pub use renderer::Renderer;
+pub use renderer_state::RendererState;
 pub use tag_handler::TagHandler;
 
 use pulldown_cmark::Parser;
@@ -65,29 +66,23 @@ pub fn render_markdown(markdown: &str, config: &RendererConfig) -> String {
 /// # Example
 ///
 /// ```rust
-/// use pulldown_html_ext::{TagHandler, Renderer};
+/// use std::iter::Peekable;
+/// use pulldown_html_ext::{TagHandler, Renderer, RendererConfig, RendererState};
+/// use pulldown_cmark::{Event, LinkType};
 ///
-/// struct CustomHandler;
+/// struct CustomHandler{
+///     config: RendererConfig,
+///     output: String,
+///     state: RendererState
+/// };
 /// impl TagHandler for CustomHandler {
 ///     // Implement required methods...
-/// #    fn write_str(&mut self, _s: &str) {}
-/// #    fn write_attributes(&mut self, _element: &str) {}
-/// #    fn is_external_link(&self, _url: &str) -> bool { false }
-/// #    fn heading_level_to_u8(&self, _level: pulldown_cmark::HeadingLevel) -> u8 { 1 }
-/// #    fn generate_heading_id(&self, _level: pulldown_cmark::HeadingLevel) -> String { String::new() }
-/// #    fn start_heading(&mut self, _level: pulldown_cmark::HeadingLevel, _id: Option<&str>, _classes: Vec<&str>) {}
-/// #    fn start_code_block(&mut self, _kind: pulldown_cmark::CodeBlockKind) {}
-/// #    fn start_list(&mut self, _first_number: Option<u64>) {}
-/// #    fn start_list_item(&mut self) {}
-/// #    fn start_table(&mut self, _alignments: Vec<pulldown_cmark::Alignment>) {}
-/// #    fn start_table_head(&mut self) {}
-/// #    fn start_table_row(&mut self) {}
-/// #    fn start_table_cell(&mut self) {}
-/// #    fn start_link(&mut self, _link_type: pulldown_cmark::LinkType, _dest: &str, _title: &str) {}
-/// #    fn start_image(&mut self, _link_type: pulldown_cmark::LinkType, _dest: &str, _title: &str) {}
+/// #    fn get_config(&self) -> &RendererConfig { &self.config }
+/// #    fn get_output(&mut self) -> &mut String{ &mut self.output }
+/// #    fn get_state(&mut self) -> &mut RendererState { &mut self.state }
 /// }
 ///
-/// let handler = CustomHandler;
+/// let mut handler = CustomHandler{ config: RendererConfig::default(), output: String::new(), state: RendererState::new() };
 /// let renderer = Renderer::new(handler);
 /// ```
 pub fn create_renderer<H: TagHandler>(handler: H) -> Renderer<H> {
