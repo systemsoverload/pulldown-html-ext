@@ -1,19 +1,21 @@
 # pulldown-html-ext
 
-A flexible Markdown to HTML renderer built on top of pulldown-cmark with support for custom styling, attributes, and rendering options.
+A configurable Markdown to HTML renderer that extends [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark). This library provides a flexible HTML rendering system with extensive configuration options, custom styling support, and attribute handling capabilities.
 
 ## Features
 
-- Configurable HTML rendering with support for custom attributes and classes
-- Extensive options for headings, links, code blocks, and other elements
-- Support for external link handling (nofollow, target="_blank")
-- Custom ID generation for headings
+- Configurable HTML rendering with extensive options
+- Custom attribute mapping for HTML elements
+- Support for heading IDs and custom classes
+- Customizable code block rendering
+- External link handling with `nofollow` and `target="_blank"` options
+- Table support with alignment controls
+- Footnote rendering
+- Task list support
 - XHTML-style output option
-- Table support with alignment
-- Footnotes and task lists
-- Line number support for code blocks
+- Pretty printing support
 
-## Usage
+## Installation
 
 Add this to your `Cargo.toml`:
 
@@ -22,89 +24,95 @@ Add this to your `Cargo.toml`:
 pulldown-html-ext = "0.1.0"
 ```
 
-### Basic Usage
+## Quick Start
 
-For basic markdown rendering with default options (this should yield the same output as `pulldown-cmark` rendering):
+Here's a simple example of converting Markdown to HTML using default settings:
 
 ```rust
 use pulldown_html_ext::{HtmlConfig, push_html};
 
-fn main() {
-    let config = HtmlConfig::default();
-    let markdown = "# Hello\nThis is *markdown*";
-    let html = push_html(markdown, &config);
-    println!("{}", html);
-}
+let config = HtmlConfig::default();
+let markdown = "# Hello\nThis is *markdown*";
+let html = push_html(markdown, &config);
 ```
 
-### Custom Configuration
+## Configuration
 
-You can customize the rendering behavior:
+The library provides extensive configuration options through the `HtmlConfig` struct:
 
 ```rust
-use pulldown_html_ext::{HtmlConfig, push_html};
+let mut config = HtmlConfig::default();
+
+// Configure HTML options
+config.html.escape_html = true;
+config.html.break_on_newline = true;
+config.html.xhtml_style = false;
+config.html.pretty_print = true;
+
+// Configure heading options
+config.elements.headings.add_ids = true;
+config.elements.headings.id_prefix = "heading-".to_string();
+
+// Configure link options
+config.elements.links.nofollow_external = true;
+config.elements.links.open_external_blank = true;
+
+// Configure code block options
+config.elements.code_blocks.default_language = Some("rust".to_string());
+config.elements.code_blocks.line_numbers = false;
+```
+
+## Custom Attribute Mapping
+
+You can add custom attributes to HTML elements:
+
+```rust
 use std::collections::HashMap;
 
-fn main() {
-    let mut config = HtmlConfig::default();
-    
-    // Configure heading classes
-    config.elements.headings.level_classes = {
-        let mut map = HashMap::new();
-        map.insert(1, "title".to_string());
-        map.insert(2, "subtitle".to_string());
-        map
-    };
-    
-
-    // Configure external links
-    config.elements.links.nofollow_external = true;
-    config.elements.links.open_external_blank = true;
-    
-    // Configure HTML output
-    config.html.escape_html = true;
-    config.html.break_on_newline = false;
-    config.html.xhtml_style = true;
-    
-    let markdown = r#"
-# Main Title
-## Subtitle
-
-[External Link](https://example.com)
-"#;
-    
-    let html = push_html(markdown, &config);
-    println!("{}", html);
-}
+let mut config = HtmlConfig::default();
+let mut attrs = HashMap::new();
+attrs.insert("class".to_string(), "custom-paragraph".to_string());
+config.attributes.element_attributes.insert("p".to_string(), attrs);
 ```
 
-### Custom Rendering
+## Custom Writers
 
-For more control, you can implement your own HTML writer and override specific rendering methods:
+Create custom HTML writers by implementing the `HtmlWriter` trait. This allows you to customize how specific Markdown elements are rendered to HTML:
 
 ```rust
 use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, create_html_renderer};
+use pulldown_cmark_escape::{StrWrite, FmtWriter};
 use pulldown_cmark::{HeadingLevel, Parser};
 
-struct CustomWriter {
+struct CustomWriter<W: StrWrite> {
+    writer: W,
     config: HtmlConfig,
-    output: String,
     state: HtmlState,
 }
 
-impl HtmlWriter for CustomWriter {
+impl<W: StrWrite> CustomWriter<W> {
+    fn new(writer: W, config: HtmlConfig) -> Self {
+        Self {
+            writer,
+            config,
+            state: HtmlState::new(),
+        }
+    }
+}
+
+impl<W: StrWrite> HtmlWriter<W> for CustomWriter<W> {
+    fn get_writer(&mut self) -> &mut W {
+        &mut self.writer
+    }
+
     fn get_config(&self) -> &HtmlConfig {
         &self.config
     }
-    
-    fn get_output(&mut self) -> &mut String {
-        &mut self.output
-    }
-    
+
     fn get_state(&mut self) -> &mut HtmlState {
         &mut self.state
     }
-    
+
     // Override heading rendering to add emoji markers and custom classes
     fn start_heading(&mut self, level: HeadingLevel, _id: Option<&str>, classes: Vec<&str>) {
         let level_num = self.heading_level_to_u8(level);
@@ -130,32 +138,27 @@ impl HtmlWriter for CustomWriter {
     }
 }
 
+// Usage example:
 fn main() {
-    let writer = CustomWriter {
-        config: HtmlConfig::default(),
-        output: String::new(),
-        state: HtmlState::new(),
-    };
+    let mut output = String::new();
+    let writer = CustomWriter::new(FmtWriter(&mut output), HtmlConfig::default());
     let mut renderer = create_html_renderer(writer);
     
     let markdown = "# Main Title\n## Subtitle\n### Section";
     let parser = Parser::new(markdown);
     renderer.run(parser);
     
-    // This will output:
+    println!("{}", output);
+    // Output:
     // <h1 class="fancy-heading level-1">🎯 Main Title </h1>
     // <h2 class="fancy-heading level-2">💫 Subtitle </h2>
     // <h3 class="fancy-heading level-3">✨ Section </h3>
-    println!("{}", renderer.writer.output);
 }
 ```
 
+## Contributing
 
-You can override any of the methods from the `HtmlWriter` trait to customize the rendering of different Markdown elements. Some commonly overridden methods include:
-- `start_link`/`end_link` for custom link rendering
-- `start_code_block`/`end_code_block` for custom code block formatting
-- `start_list`/`end_list` for custom list rendering
-- `text` for custom text processing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
