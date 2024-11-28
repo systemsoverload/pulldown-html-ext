@@ -3,9 +3,9 @@ use pulldown_cmark::Parser;
 use pulldown_html_ext::*;
 use std::collections::HashMap;
 
-fn render_with_config(input: &str, config: &RendererConfig) -> String {
+fn render_with_config(input: &str, config: &HtmlConfig) -> String {
     let mut output = String::new();
-    let handler = DefaultTagHandler::new(&mut output, config);
+    let handler = DefaultHtmlWriter::new(&mut output, config);
     let mut renderer = Renderer::new(handler);
     renderer.run(Parser::new(input));
     output
@@ -15,7 +15,7 @@ fn render_with_config(input: &str, config: &RendererConfig) -> String {
 #[test]
 #[ignore = "TODO: Fix/define escape_html handling in renderer"]
 fn test_escape_html_option() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // With HTML escaping (default)
     config.html.escape_html = true;
@@ -34,7 +34,7 @@ fn test_escape_html_option() {
 
 #[test]
 fn test_break_on_newline_option() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // With break on newline (default)
     config.html.break_on_newline = true;
@@ -53,7 +53,7 @@ fn test_break_on_newline_option() {
 
 #[test]
 fn test_xhtml_style_option() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // Without XHTML style (default)
     config.html.xhtml_style = false;
@@ -73,7 +73,7 @@ fn test_xhtml_style_option() {
 // Individual element options tests
 #[test]
 fn test_heading_id_option() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // With heading IDs (default)
     config.elements.headings.add_ids = true;
@@ -92,7 +92,7 @@ fn test_heading_id_option() {
 
 #[test]
 fn test_heading_id_prefix_option() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
     config.elements.headings.id_prefix = "section-".to_string();
 
     assert_html_eq!(
@@ -103,7 +103,7 @@ fn test_heading_id_prefix_option() {
 
 #[test]
 fn test_heading_level_classes() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
     let mut level_classes = HashMap::new();
     level_classes.insert(1, "title".to_string());
     level_classes.insert(2, "subtitle".to_string());
@@ -118,7 +118,7 @@ fn test_heading_level_classes() {
 
 #[test]
 fn test_link_options() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
     config.elements.links.nofollow_external = true;
     config.elements.links.open_external_blank = true;
 
@@ -134,7 +134,7 @@ fn test_link_options() {
 
 #[test]
 fn test_code_block_options() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
     config.elements.code_blocks.default_language = Some("text".to_string());
 
     // Explicit language should override default
@@ -152,7 +152,7 @@ fn test_code_block_options() {
 
 #[test]
 fn test_custom_attributes() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
     let mut element_attributes = HashMap::new();
 
     // Add attributes for paragraphs
@@ -177,7 +177,7 @@ fn test_custom_attributes() {
 // Mixed configuration tests
 #[test]
 fn test_mixed_config_blog_style() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // Configure for blog-style output
     config.html.break_on_newline = false;
@@ -204,7 +204,7 @@ fn test_mixed_config_blog_style() {
 
 #[test]
 fn test_mixed_config_documentation_style() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // Configure for documentation-style output
     config.elements.headings.id_prefix = "doc-".to_string();
@@ -234,7 +234,7 @@ fn test_mixed_config_documentation_style() {
 
 #[test]
 fn test_mixed_config_presentation_style() {
-    let mut config = RendererConfig::default();
+    let mut config = HtmlConfig::default();
 
     // Configure for presentation-style output
     config.html.xhtml_style = true;

@@ -6,11 +6,11 @@
 //!
 //! # Example
 //! ```rust
-//! use pulldown_html_ext::{RendererConfig, render_markdown};
+//! use pulldown_html_ext::{HtmlConfig, push_html};
 //!
-//! let config = RendererConfig::default();
+//! let config = HtmlConfig::default();
 //! let markdown = "# Hello\nThis is *markdown*";
-//! let html = render_markdown(markdown, &config);
+//! let html = push_html(markdown, &config);
 //! assert!(html.contains("<h1"));
 //! ```
 
@@ -22,13 +22,13 @@ mod tag_handler;
 pub mod utils;
 
 pub use config::{
-    AttributeMappings, CodeBlockOptions, ElementOptions, HeadingOptions, HtmlOptions, LinkOptions,
-    RendererConfig,
+    AttributeMappings, CodeBlockOptions, ElementOptions, HeadingOptions, HtmlConfig, HtmlOptions,
+    LinkOptions,
 };
-pub use default_handler::DefaultTagHandler;
+pub use default_handler::DefaultHtmlWriter;
 pub use renderer::Renderer;
 pub use renderer_state::RendererState;
-pub use tag_handler::TagHandler;
+pub use tag_handler::HtmlWriter;
 
 use pulldown_cmark::Parser;
 
@@ -42,16 +42,16 @@ use pulldown_cmark::Parser;
 /// # Example
 ///
 /// ```rust
-/// use pulldown_html_ext::{RendererConfig, render_markdown};
+/// use pulldown_html_ext::{HtmlConfig, push_html};
 ///
-/// let config = RendererConfig::default();
+/// let config = HtmlConfig::default();
 /// let markdown = "# Title\nHello *world*!";
-/// let html = render_markdown(markdown, &config);
+/// let html = push_html(markdown, &config);
 /// ```
-pub fn render_markdown(markdown: &str, config: &RendererConfig) -> String {
+pub fn push_html(markdown: &str, config: &HtmlConfig) -> String {
     let mut output = String::new();
     let parser = Parser::new(markdown);
-    let handler = default_handler::DefaultTagHandler::new(&mut output, config);
+    let handler = default_handler::DefaultHtmlWriter::new(&mut output, config);
     let mut renderer = renderer::Renderer::new(handler);
     renderer.run(parser);
     output
@@ -67,25 +67,25 @@ pub fn render_markdown(markdown: &str, config: &RendererConfig) -> String {
 ///
 /// ```rust
 /// use std::iter::Peekable;
-/// use pulldown_html_ext::{TagHandler, Renderer, RendererConfig, RendererState};
+/// use pulldown_html_ext::{HtmlWriter, Renderer, HtmlConfig, RendererState};
 /// use pulldown_cmark::{Event, LinkType};
 ///
 /// struct CustomHandler{
-///     config: RendererConfig,
+///     config: HtmlConfig,
 ///     output: String,
 ///     state: RendererState
 /// };
-/// impl TagHandler for CustomHandler {
+/// impl HtmlWriter for CustomHandler {
 ///     // Implement required methods...
-/// #    fn get_config(&self) -> &RendererConfig { &self.config }
+/// #    fn get_config(&self) -> &HtmlConfig { &self.config }
 /// #    fn get_output(&mut self) -> &mut String{ &mut self.output }
 /// #    fn get_state(&mut self) -> &mut RendererState { &mut self.state }
 /// }
 ///
-/// let mut handler = CustomHandler{ config: RendererConfig::default(), output: String::new(), state: RendererState::new() };
+/// let mut handler = CustomHandler{ config: HtmlConfig::default(), output: String::new(), state: RendererState::new() };
 /// let renderer = Renderer::new(handler);
 /// ```
-pub fn create_renderer<H: TagHandler>(handler: H) -> Renderer<H> {
+pub fn create_renderer<H: HtmlWriter>(handler: H) -> Renderer<H> {
     Renderer::new(handler)
 }
 
@@ -96,9 +96,9 @@ mod tests {
 
     #[test]
     fn test_basic_markdown() {
-        let config = RendererConfig::default();
+        let config = HtmlConfig::default();
         let markdown = "# Hello\nThis is a test.";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(html.contains("<h1"));
         assert!(html.contains("Hello"));
         assert!(html.contains("<p>"));
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_custom_heading_classes() {
-        let mut config = RendererConfig::default();
+        let mut config = HtmlConfig::default();
         config.elements.headings.level_classes = {
             let mut map = HashMap::new();
             map.insert(1, "title".to_string());
@@ -116,38 +116,38 @@ mod tests {
         };
 
         let markdown = "# Main Title\n## Subtitle";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(html.contains(r#"<h1 id="heading-1" class="title""#));
         assert!(html.contains(r#"<h2 id="heading-2" class="subtitle""#));
     }
 
     #[test]
     fn test_code_blocks() {
-        let mut config = RendererConfig::default();
+        let mut config = HtmlConfig::default();
         config.elements.code_blocks.default_language = Some("text".to_string());
 
         let markdown = "```python\nprint('hello')\n```";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(html.contains(r#"<code class="language-python">"#));
 
         let markdown = "```\nplain text\n```";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(html.contains(r#"<code class="language-text">"#));
     }
 
     #[test]
     fn test_external_links() {
-        let mut config = RendererConfig::default();
+        let mut config = HtmlConfig::default();
         config.elements.links.nofollow_external = true;
         config.elements.links.open_external_blank = true;
 
         let markdown = "[External](https://example.com)";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(html.contains(r#"rel="nofollow""#));
         assert!(html.contains(r#"target="_blank""#));
 
         let markdown = "[Internal](/local)";
-        let html = render_markdown(markdown, &config);
+        let html = push_html(markdown, &config);
         assert!(!html.contains(r#"rel="nofollow""#));
         assert!(!html.contains(r#"target="_blank""#));
     }

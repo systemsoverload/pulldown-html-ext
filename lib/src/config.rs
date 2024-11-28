@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 /// Main configuration struct for the HTML renderer
 #[derive(Debug, Clone, Deserialize)]
-pub struct RendererConfig {
+pub struct HtmlConfig {
     /// HTML-specific rendering options
     pub html: HtmlOptions,
     /// Options for different Markdown elements
@@ -74,9 +74,9 @@ pub struct AttributeMappings {
     pub element_attributes: HashMap<String, HashMap<String, String>>,
 }
 
-impl Default for RendererConfig {
+impl Default for HtmlConfig {
     fn default() -> Self {
-        RendererConfig {
+        HtmlConfig {
             html: HtmlOptions {
                 escape_html: false,
                 break_on_newline: true,
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_default_config() {
-        let config = RendererConfig::default();
+        let config = HtmlConfig::default();
         assert!(!config.html.escape_html);
         assert!(config.html.break_on_newline);
         assert!(!config.html.xhtml_style);

@@ -1,5 +1,5 @@
 use clap::Parser;
-use pulldown_html_ext::RendererConfig;
+use pulldown_html_ext::HtmlConfig;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -48,11 +48,11 @@ fn main() -> io::Result<()> {
                 )
             })?
         }
-        None => RendererConfig::default(),
+        None => HtmlConfig::default(),
     };
 
     // Convert markdown to HTML
-    let html = pulldown_html_ext::render_markdown(&input, &config);
+    let html = pulldown_html_ext::push_html(&input, &config);
 
     // Write output
     match args.output {

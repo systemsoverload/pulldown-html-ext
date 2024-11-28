@@ -1,15 +1,15 @@
-use crate::config::RendererConfig;
+use crate::config::HtmlConfig;
 use crate::renderer_state::RendererState;
-use crate::tag_handler::TagHandler;
+use crate::tag_handler::HtmlWriter;
 
-pub struct DefaultTagHandler<'a> {
+pub struct DefaultHtmlWriter<'a> {
     pub(crate) state: RendererState,
-    pub(crate) config: &'a RendererConfig,
+    pub(crate) config: &'a HtmlConfig,
     pub(crate) output: &'a mut String,
 }
 
-impl<'a> DefaultTagHandler<'a> {
-    pub fn new(output: &'a mut String, config: &'a RendererConfig) -> Self {
+impl<'a> DefaultHtmlWriter<'a> {
+    pub fn new(output: &'a mut String, config: &'a HtmlConfig) -> Self {
         Self {
             state: RendererState::new(),
             config,
@@ -18,8 +18,8 @@ impl<'a> DefaultTagHandler<'a> {
     }
 }
 
-impl<'a> TagHandler for DefaultTagHandler<'a> {
-    fn get_config(&self) -> &RendererConfig {
+impl<'a> HtmlWriter for DefaultHtmlWriter<'a> {
+    fn get_config(&self) -> &HtmlConfig {
         self.config
     }
 

@@ -3,10 +3,10 @@ use std::iter::Peekable;
 
 use crate::renderer_state::{ListType, RendererState};
 use crate::utils::{escape_href, escape_html};
-use crate::RendererConfig;
+use crate::HtmlConfig;
 
 /// Trait for handling Markdown tag rendering to HTML
-pub trait TagHandler {
+pub trait HtmlWriter {
     /// Write a string directly to the output
     fn write_str(&mut self, s: &str) {
         self.get_output().push_str(s);
@@ -27,7 +27,7 @@ pub trait TagHandler {
         }
     }
 
-    fn get_config(&self) -> &RendererConfig;
+    fn get_config(&self) -> &HtmlConfig;
 
     fn get_output(&mut self) -> &mut String;
 
@@ -477,13 +477,13 @@ mod tests {
 
     struct TestHandler {
         output: String,
-        config: RendererConfig,
+        config: HtmlConfig,
         state: RendererState,
     }
 
     impl TestHandler {
         fn new() -> Self {
-            let mut config = RendererConfig::default();
+            let mut config = HtmlConfig::default();
             config.html.break_on_newline = false;
             let state = RendererState::new();
             Self {
@@ -498,8 +498,8 @@ mod tests {
         }
     }
 
-    impl TagHandler for TestHandler {
-        fn get_config(&self) -> &RendererConfig {
+    impl HtmlWriter for TestHandler {
+        fn get_config(&self) -> &HtmlConfig {
             &self.config
         }
 
