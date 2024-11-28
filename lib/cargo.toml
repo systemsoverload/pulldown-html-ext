@@ -19,3 +19,12 @@ toml = "0.8.19"
 [dev-dependencies]
 html-compare-rs = "0.2.0"
 scraper = "0.21"
+
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+[[test]]
+name = "pulldown-cmark"
+path = "tests/pulldown_cmark.rs"

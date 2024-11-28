@@ -15,7 +15,3 @@ clap = { version = "4.4", features = ["derive"] }
 assert_cmd = "2.0.16"
 predicates = "3.1.2"
 tempfile = "3.14.0"
-
-[[test]]
-name = "integration"
-path = "tests/integration.rs"
