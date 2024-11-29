@@ -1,6 +1,7 @@
 use clap::Parser;
 use pulldown_html_ext::HtmlConfig;
 use std::fs;
+use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
@@ -51,13 +52,19 @@ fn main() -> io::Result<()> {
         None => HtmlConfig::default(),
     };
 
-    // Convert markdown to HTML
-    let html = pulldown_html_ext::push_html(&input, &config);
-
-    // Write output
+    // Convert markdown to HTML and write to output
     match args.output {
-        Some(path) => fs::write(path, html)?,
-        None => println!("{}", html),
+        Some(path) => {
+            let file = File::create(path)?;
+            pulldown_html_ext::write_html_io(file, &input, &config)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        }
+        None => {
+            let stdout = io::stdout();
+            let handle = stdout.lock();
+            pulldown_html_ext::write_html_io(handle, &input, &config)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        }
     }
 
     Ok(())
