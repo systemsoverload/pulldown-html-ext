@@ -6,13 +6,19 @@ authors.workspace = true
 license.workspace = true
 description = "Extended HTML rendering capabilities for pulldown-cmark"
 
+[features]
+default = ["syntect"]
+syntect = ["dep:syntect", "dep:lazy_static"]
+
 
 [dependencies]
 ego-tree = "0.9.0"
+lazy_static = { version = "1.5.0", optional = true }
 pulldown-cmark = "0.9"
 pulldown-cmark-escape = "0.11.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.133"
+syntect = {version = "5.2.0", optional = true }
 thiserror = "1.0"
 toml = "0.8.19"
 

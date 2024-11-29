@@ -71,9 +71,9 @@ mod html;
 pub mod utils;
 
 pub use html::{
-    create_html_renderer, push_html, AttributeMappings, CodeBlockOptions, DefaultHtmlWriter,
-    ElementOptions, HeadingOptions, HtmlConfig, HtmlOptions, HtmlRenderer, HtmlState, HtmlWriter,
-    LinkOptions,
+    create_html_renderer, push_html, push_html_with_highlighting, AttributeMappings,
+    CodeBlockOptions, DefaultHtmlWriter, ElementOptions, HeadingOptions, HtmlConfig, HtmlOptions,
+    HtmlRenderer, HtmlState, HtmlWriter, LinkOptions, SyntectConfig, SyntectConfigStyle,
 };
 
 #[cfg(test)]

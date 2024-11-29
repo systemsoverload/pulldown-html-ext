@@ -10,8 +10,9 @@ pub struct HtmlConfig {
     pub elements: ElementOptions,
     /// Custom attribute mappings
     pub attributes: AttributeMappings,
+    /// Syntect syntax highlighting configuration (style only)
+    pub syntect: Option<crate::html::syntect::SyntectConfigStyle>,
 }
-
 /// Configuration options for HTML output
 #[derive(Debug, Clone, Deserialize)]
 pub struct HtmlOptions {
@@ -101,6 +102,8 @@ impl Default for HtmlConfig {
             attributes: AttributeMappings {
                 element_attributes: HashMap::new(),
             },
+            #[cfg(feature = "syntect")]
+            syntect: None,
         }
     }
 }

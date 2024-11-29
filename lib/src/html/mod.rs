@@ -9,6 +9,13 @@ mod default;
 mod state;
 mod writer;
 
+#[cfg(feature = "syntect")]
+mod syntect;
+#[cfg(feature = "syntect")]
+pub use self::syntect::{
+    push_html_with_highlighting, SyntectConfig, SyntectConfigStyle, SyntectWriter,
+};
+
 use pulldown_cmark::{Event, Parser};
 use pulldown_cmark_escape::{FmtWriter, IoWriter, StrWrite};
 use std::iter::Peekable;
