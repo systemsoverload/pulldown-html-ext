@@ -1,4 +1,4 @@
-use crate::html::config;
+use crate::html::{config, HtmlError};
 use lazy_static::lazy_static;
 use pulldown_cmark_escape::StrWrite;
 use serde::{Deserialize, Deserializer};
@@ -178,7 +178,7 @@ impl<'a, W: StrWrite> HtmlWriter<W> for SyntectWriter<'a, W> {
         self.inner.get_state()
     }
 
-    fn start_code_block(&mut self, kind: pulldown_cmark::CodeBlockKind) {
+    fn start_code_block(&mut self, kind: pulldown_cmark::CodeBlockKind) -> Result<(), HtmlError> {
         self.current_lang = match kind {
             pulldown_cmark::CodeBlockKind::Fenced(ref info) => {
                 if info.is_empty() {
@@ -190,38 +190,43 @@ impl<'a, W: StrWrite> HtmlWriter<W> for SyntectWriter<'a, W> {
             _ => None,
         };
 
-        self.write_str("<pre");
-        self.write_attributes("pre");
-        self.write_str("><code");
+        self.write_str("<pre")?;
+        self.write_attributes("pre")?;
+        self.write_str("><code")?;
 
         if let Some(ref lang) = self.current_lang {
-            self.write_str(&format!(" class=\"language-{}\"", lang));
+            self.write_str(&format!(" class=\"language-{}\"", lang))?;
         }
 
-        self.write_attributes("code");
-        self.write_str(">");
+        self.write_attributes("code")?;
+        self.write_str(">")?;
 
         self.get_state().currently_in_code_block = true;
+        Ok(())
     }
 
-    fn text(&mut self, text: &str) {
+    fn text(&mut self, text: &str) -> Result<(), HtmlError> {
         if self.get_state().currently_in_code_block {
             let highlighted = self.highlight_code(text, self.current_lang.as_deref());
-            self.write_str(&highlighted);
+            self.write_str(&highlighted)
         } else {
-            self.inner.text(text);
+            self.inner.text(text)
         }
     }
 
-    fn end_code_block(&mut self) {
-        self.write_str("</code></pre>");
+    fn end_code_block(&mut self) -> Result<(), HtmlError> {
+        self.write_str("</code></pre>")?;
         self.current_lang = None;
         self.get_state().currently_in_code_block = false;
+        Ok(())
     }
 }
 
 /// Convenience function to render Markdown with syntax highlighting
-pub fn push_html_with_highlighting(markdown: &str, config: &HtmlConfig) -> String {
+pub fn push_html_with_highlighting(
+    markdown: &str,
+    config: &HtmlConfig,
+) -> Result<String, HtmlError> {
     use pulldown_cmark::Parser;
     use pulldown_cmark_escape::FmtWriter;
 
@@ -230,17 +235,17 @@ pub fn push_html_with_highlighting(markdown: &str, config: &HtmlConfig) -> Strin
     let mut renderer = crate::html::create_html_renderer(writer);
 
     let parser = Parser::new(markdown);
-    renderer.run(parser);
+    renderer.run(parser)?;
 
     // Add CSS if configured
     if let Some(ref style) = config.syntect {
         if style.inject_css {
             match renderer.writer.get_theme_css() {
-                Ok(css) => return format!("<style>{}</style>\n{}", css, output),
+                Ok(css) => return Ok(format!("<style>{}</style>\n{}", css, output)),
                 Err(e) => eprintln!("Failed to generate syntax highlighting CSS: {}", e),
             }
         }
     }
 
-    output
+    Ok(output)
 }

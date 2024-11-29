@@ -12,7 +12,7 @@
 //!
 //! let config = HtmlConfig::default();
 //! let markdown = "# Hello\nThis is *markdown*";
-//! let html = push_html(markdown, &config);
+//! let html = push_html(markdown, &config).unwrap();
 //! assert!(html.contains("<h1"));
 //! ```
 //!
@@ -86,7 +86,7 @@ mod tests {
     fn test_basic_markdown() {
         let config = HtmlConfig::default();
         let markdown = "# Hello\nThis is a test.";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains("<h1"));
         assert!(html.contains("Hello"));
         assert!(html.contains("<p>"));
@@ -104,7 +104,7 @@ mod tests {
         };
 
         let markdown = "# Main Title\n## Subtitle";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains(r#"<h1 id="heading-1" class="title""#));
         assert!(html.contains(r#"<h2 id="heading-2" class="subtitle""#));
     }
@@ -115,11 +115,11 @@ mod tests {
         config.elements.code_blocks.default_language = Some("text".to_string());
 
         let markdown = "```python\nprint('hello')\n```";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains(r#"<code class="language-python">"#));
 
         let markdown = "```\nplain text\n```";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains(r#"<code class="language-text">"#));
     }
 
@@ -130,12 +130,12 @@ mod tests {
         config.elements.links.open_external_blank = true;
 
         let markdown = "[External](https://example.com)";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains(r#"rel="nofollow""#));
         assert!(html.contains(r#"target="_blank""#));
 
         let markdown = "[Internal](/local)";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(!html.contains(r#"rel="nofollow""#));
         assert!(!html.contains(r#"target="_blank""#));
     }
@@ -148,7 +148,7 @@ mod tests {
         config.html.xhtml_style = true;
 
         let markdown = "Test & test\nNew line";
-        let html = push_html(markdown, &config);
+        let html = push_html(markdown, &config).unwrap();
         assert!(html.contains("&amp;"));
         assert!(!html.contains("<br"));
     }

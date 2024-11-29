@@ -48,9 +48,9 @@ mod tests {
         let config = HtmlConfig::default();
         let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
 
-        writer.write_str("<p>");
+        writer.write_str("<p>").unwrap();
         let _ = escape_html(&mut writer.get_writer(), "Hello & World");
-        writer.write_str("</p>");
+        writer.write_str("</p>").unwrap();
 
         assert_eq!(output, "<p>Hello &amp; World</p>");
     }
@@ -67,9 +67,9 @@ mod tests {
         );
 
         let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
-        writer.start_paragraph();
-        writer.text("Test");
-        writer.end_paragraph();
+        writer.start_paragraph().unwrap();
+        writer.text("Test").unwrap();
+        writer.end_paragraph().unwrap();
 
         assert_eq!(output, r#"<p class="test">Test</p>"#);
     }
@@ -101,7 +101,7 @@ mod tests {
         let config = HtmlConfig::default();
         let mut writer = DefaultHtmlWriter::new(TestWriter(String::new()), &config);
 
-        writer.write_str("Test");
+        writer.write_str("Test").unwrap();
         assert_eq!(writer.get_writer().0, "Test");
     }
 
@@ -114,9 +114,11 @@ mod tests {
 
         assert!(!writer.get_state().currently_in_code_block);
         writer.get_state().currently_in_code_block = true;
-        writer.start_code_block(pulldown_cmark::CodeBlockKind::Fenced("rust".into()));
+        writer
+            .start_code_block(pulldown_cmark::CodeBlockKind::Fenced("rust".into()))
+            .unwrap();
         assert!(writer.get_state().currently_in_code_block);
-        writer.end_code_block();
+        writer.end_code_block().unwrap();
         writer.get_state().currently_in_code_block = false;
         assert!(!writer.get_state().currently_in_code_block);
     }

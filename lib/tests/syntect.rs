@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use pulldown_html_ext::{HtmlConfig, SyntectConfig, SyntectConfigStyle};
+    use pulldown_html_ext::{
+        push_html_with_highlighting, HtmlConfig, SyntectConfig, SyntectConfigStyle,
+    };
     use syntect::highlighting::ThemeSet;
     use syntect::html::ClassStyle;
     use syntect::parsing::SyntaxSet;
@@ -9,7 +11,7 @@ mod tests {
     fn test_basic_highlighting() {
         let config = HtmlConfig::with_syntect(SyntectConfig::default());
         let markdown = "```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("<pre><code class=\"language-rust\">"));
         assert!(html.contains("println!"));
@@ -26,7 +28,7 @@ mod tests {
         });
 
         let markdown = "```rust\nlet x = 42;\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("<style>"));
         assert!(html.contains("language-rust"));
@@ -43,7 +45,7 @@ mod tests {
         });
 
         let markdown = "```python\nprint('hello')\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("language-python"));
     }
@@ -59,7 +61,7 @@ mod tests {
         });
 
         let markdown = "```rust\nlet x = 42;\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(!html.contains("<style>"));
         assert!(html.contains("language-rust"));
@@ -76,7 +78,7 @@ mod tests {
         });
 
         let markdown = "```rust\nfn main() {}\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("language-rust"));
     }
@@ -98,7 +100,7 @@ mod tests {
         });
 
         let markdown = "```rust\nfn test() -> u32 { 42 }\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("<style>"));
         assert!(html.contains("language-rust"));
@@ -108,7 +110,7 @@ mod tests {
     fn test_unknown_language() {
         let config = HtmlConfig::with_syntect(SyntectConfig::default());
         let markdown = "```unknown-lang\nSome code\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("language-unknown-lang"));
     }
@@ -117,7 +119,7 @@ mod tests {
     fn test_no_language_specified() {
         let config = HtmlConfig::with_syntect(SyntectConfig::default());
         let markdown = "```\nPlain text code block\n```";
-        let html = pulldown_html_ext::push_html_with_highlighting(markdown, &config);
+        let html = push_html_with_highlighting(markdown, &config).unwrap();
 
         assert!(html.contains("<pre><code>"));
         assert!(html.contains("Plain text code block"));

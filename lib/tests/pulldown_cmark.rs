@@ -29,7 +29,7 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -61,7 +61,7 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -79,7 +79,7 @@ fn test_processing_instruction() {
 <p>Useless</p>
 ?>"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -97,7 +97,7 @@ fn test_html_comment() {
 <p>Useless</p>
 -->"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -115,7 +115,7 @@ fn test_cdata_section() {
 <p>Useless</p>
 ]]>"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -131,7 +131,7 @@ Some things are here...
 Some things are here...
 >"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -162,7 +162,7 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -177,7 +177,7 @@ fn test_table() {
 
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -186,7 +186,7 @@ fn test_horizontal_rule_dash() {
     let original = "---";
     let expected = "<hr>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -195,7 +195,7 @@ fn test_horizontal_rule_asterisk() {
     let original = "* * *";
     let expected = "<hr>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -204,7 +204,7 @@ fn test_strikethrough_disabled() {
     let original = "hi ~~no~~";
     let expected = "<p>hi ~~no~~</p>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -238,7 +238,7 @@ fn test_broken_link_callback() {
 fn test_code_with_newlines() {
     for original in ["`\n `x", "` \n`x"] {
         let expected = "<p><code>  </code>x</p>";
-        let html = push_html(original, &HtmlConfig::default());
+        let html = push_html(original, &HtmlConfig::default()).unwrap();
         assert_html_eq!(html, expected, markdown());
     }
 }
@@ -248,7 +248,7 @@ fn test_code_with_newlines_at_boundaries() {
     let original = "`\nx\n`x";
     let expected = "<p><code>x</code>x</p>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -258,7 +258,7 @@ fn test_trim_whitespace_at_paragraph_end() {
     let original = "one\ntwo \t";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -267,7 +267,7 @@ fn test_trim_whitespace_at_paragraph_end() {
 fn test_code_with_internal_newlines() {
     for original in ["`\nx \ny\n`x", "`x \ny`x", "`x\n y`x"] {
         let expected = "<p><code>x  y</code>x</p>";
-        let html = push_html(original, &HtmlConfig::default());
+        let html = push_html(original, &HtmlConfig::default()).unwrap();
         assert_html_eq!(html, expected, markdown());
     }
 }
@@ -279,7 +279,7 @@ fn test_trim_whitespace_and_newline_at_paragraph_end() {
     let mut config = HtmlConfig::default();
     config.html.break_on_newline = false;
 
-    let html = push_html("one\ntwo \t\n", &config);
+    let html = push_html("one\ntwo \t\n", &config).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -289,7 +289,7 @@ fn test_trim_space_before_newline_at_paragraph_end() {
     let original = "one\ntwo \n";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
 
@@ -299,6 +299,6 @@ fn test_trim_space_before_soft_break() {
     let original = "one \ntwo";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default());
+    let html = push_html(original, &HtmlConfig::default()).unwrap();
     assert_html_eq!(html, expected, markdown());
 }
