@@ -1,9 +1,13 @@
 #[cfg(test)]
 mod tests {
+    use pulldown_cmark_escape::FmtWriter;
+    use pulldown_html_ext::HtmlWriter;
+    use pulldown_html_ext::SyntectWriter;
     use pulldown_html_ext::{
         push_html_with_highlighting, HtmlConfig, SyntectConfig, SyntectConfigStyle,
     };
     use syntect::highlighting::ThemeSet;
+
     use syntect::html::ClassStyle;
     use syntect::parsing::SyntaxSet;
 
@@ -34,6 +38,34 @@ mod tests {
         assert!(html.contains("language-rust"));
     }
 
+    #[test]
+    fn test_custom_syntax_sets() {
+        let mut output = String::new();
+        let config = HtmlConfig::default();
+        let syntax_set = SyntaxSet::load_defaults_newlines();
+        let theme_set = ThemeSet::load_defaults();
+
+        let mut writer = SyntectWriter::with_custom_sets(
+            FmtWriter(&mut output),
+            &config,
+            Some(&syntax_set),
+            Some(&theme_set),
+        );
+
+        // Test with a specific language that's in the custom syntax set
+        writer
+            .start_code_block(pulldown_cmark::CodeBlockKind::Fenced("rust".into()))
+            .unwrap();
+        writer
+            .text("fn main() {\n    println!(\"Hello, world!\");\n}")
+            .unwrap();
+        writer.end_code_block().unwrap();
+
+        // Verify output contains syntax highlighted code
+        assert!(output.contains("class=\"")); // Should have syntax highlighting classes
+        assert!(output.contains("fn")); // Should contain the code
+        assert!(output.contains("println")); // Should contain the code
+    }
     #[test]
     fn test_custom_syntax_set() {
         let syntax_set = SyntaxSet::new();

@@ -74,7 +74,7 @@ pub use html::{
     create_html_renderer, push_html, push_html_with_highlighting, write_html_fmt, write_html_io,
     AttributeMappings, CodeBlockOptions, DefaultHtmlWriter, ElementOptions, HeadingOptions,
     HtmlConfig, HtmlError, HtmlOptions, HtmlRenderer, HtmlState, HtmlWriter, LinkOptions,
-    SyntectConfig, SyntectConfigStyle,
+    SyntectConfig, SyntectConfigStyle, SyntectWriter,
 };
 
 #[cfg(test)]
