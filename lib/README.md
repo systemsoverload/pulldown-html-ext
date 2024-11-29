@@ -14,6 +14,7 @@ A configurable Markdown to HTML renderer that extends [pulldown-cmark](https://g
 - Task list support
 - XHTML-style output option
 - Pretty printing support
+- Syntect-based syntax highlighting for code blocks
 
 ## Installation
 
@@ -60,6 +61,13 @@ config.elements.links.open_external_blank = true;
 // Configure code block options
 config.elements.code_blocks.default_language = Some("rust".to_string());
 config.elements.code_blocks.line_numbers = false;
+
+// Configure syntax highlighting ( If feature is enabled )
+config.syntect = Some(SyntectConfigStyle {
+    theme: "base16-ocean.dark".to_string(),
+    class_style: ClassStyle::Spaced,
+    inject_css: true,
+});
 ```
 
 ## Custom Attribute Mapping
@@ -155,6 +163,28 @@ fn main() {
     // <h3 class="fancy-heading level-3">✨ Section </h3>
 }
 ```
+
+## Syntect-based Syntax Highlighting
+
+The library provides an optional feature to enable syntax highlighting for code blocks using the Syntect library. To use this, you can enable the `syntect` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+pulldown-html-ext = { version = "0.1.0", features = ["syntect"] }
+```
+
+Then, you can configure the syntax highlighting options in your `HtmlConfig`:
+
+```rust
+let mut config = HtmlConfig::default();
+config.syntect = Some(SyntectConfigStyle {
+    theme: "base16-ocean.dark".to_string(),
+    class_style: ClassStyle::Spaced,
+    inject_css: true,
+});
+```
+
+This will add syntax highlighting to your code blocks using the specified theme and class style.
 
 ## Contributing
 
