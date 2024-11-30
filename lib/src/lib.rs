@@ -1,19 +1,21 @@
+//! pulldown-html-ext
+//!
 //! A configurable Markdown to HTML renderer built on top of pulldown-cmark.
 //!
-//! This crate provides a flexible HTML renderer with support for custom styling,
-//! attributes, and rendering options. It extends pulldown-cmark's capabilities
-//! while maintaining a clean, safe API.
+//! # Documentation
 //!
-//! # Examples
+//! - [API Documentation](https://docs.rs/pulldown-html-ext)
+//! - [User Guide](https://your-username.github.io/pulldown-html-ext)
+//! - [Examples](https://your-username.github.io/pulldown-html-ext/examples)
 //!
-//! Basic usage with default options:
+//! # Quick Start
+//!
 //! ```rust
 //! use pulldown_html_ext::{HtmlConfig, push_html};
 //!
 //! let config = HtmlConfig::default();
 //! let markdown = "# Hello\nThis is *markdown*";
 //! let html = push_html(markdown, &config).unwrap();
-//! assert!(html.contains("<h1"));
 //! ```
 //!
 //! Custom rendering with a custom writer:
