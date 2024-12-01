@@ -1,0 +1,8 @@
+error: struct must have a field named 'base'
+ --> tests/ui/missing_base.rs:6:23
+  |
+6 |   struct MissingBase<W> {  // This should fail
+  |  _______________________^
+7 | |     writer: W,  // Wrong field name
+8 | | }
+  | |_^

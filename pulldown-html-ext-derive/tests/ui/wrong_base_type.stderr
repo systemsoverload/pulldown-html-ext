@@ -1,0 +1,5 @@
+error: base field must be of type HtmlWriterBase<W>
+ --> tests/ui/wrong_base_type.rs:7:11
+  |
+7 |     base: String,  // Wrong type
+  |           ^^^^^^

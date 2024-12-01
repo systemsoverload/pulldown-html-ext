@@ -378,6 +378,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
 name = "hashbrown"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,9 +738,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.90"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4e1ced3fe749df87a909c23e9607ab9a09c8f0bedb7e03b8146f4c08c298673"
+checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
 dependencies = [
  "unicode-ident",
 ]
@@ -786,6 +792,17 @@ dependencies = [
  "pulldown-html-ext",
  "tempfile",
  "toml",
+]
+
+[[package]]
+name = "pulldown-html-ext-derive"
+version = "0.4.0"
+dependencies = [
+ "proc-macro2",
+ "pulldown-cmark-escape",
+ "quote",
+ "syn",
+ "trybuild",
 ]
 
 [[package]]
@@ -1051,9 +1068,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.88"
+version = "2.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8e9a4e1639f47f655bf8e5198232f05615d5fb7e864ef5c4f5abdaf8ad3b8f4"
+checksum = "919d3b74a5dd0ccd15aeb8f93e7006bd9e14c295087c9896a110f490752bcf31"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1083,6 +1100,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "target-triple"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42a4d50cdb458045afc8131fd91b64904da29548bcb63c7236e0844936c13078"
+
+[[package]]
 name = "tempfile"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1104,6 +1127,15 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "termcolor"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
+dependencies = [
+ "winapi-util",
 ]
 
 [[package]]
@@ -1215,6 +1247,21 @@ dependencies = [
  "serde_spanned",
  "toml_datetime",
  "winnow",
+]
+
+[[package]]
+name = "trybuild"
+version = "1.0.101"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dcd332a5496c026f1e14b7f3d2b7bd98e509660c04239c58b0ba38a12daded4"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "target-triple",
+ "termcolor",
+ "toml",
 ]
 
 [[package]]

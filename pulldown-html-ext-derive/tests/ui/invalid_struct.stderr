@@ -1,0 +1,5 @@
+error: html_writer can only be applied to structs, not enums
+ --> tests/ui/invalid_struct.rs:6:6
+  |
+6 | enum InvalidEnum {  // This should fail
+  |      ^^^^^^^^^^^
