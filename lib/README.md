@@ -31,10 +31,13 @@ Here's a simple example of converting Markdown to HTML using default settings:
 
 ```rust
 use pulldown_html_ext::{HtmlConfig, push_html};
+use pulldown_cmark::Parser;
 
 let config = HtmlConfig::default();
 let markdown = "# Hello\nThis is *markdown*";
-let html = push_html(markdown, &config);
+let mut output = String::new();
+let parser = Parser::new(markdown);
+let html = push_html(&mut output, parser, &config);
 ```
 
 ## Configuration

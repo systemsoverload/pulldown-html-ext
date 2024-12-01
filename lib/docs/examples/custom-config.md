@@ -7,6 +7,7 @@ This guide provides practical examples of customizing the HTML output using vari
 Add custom attributes to specific HTML elements:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 use std::collections::HashMap;
 
@@ -32,8 +33,11 @@ Some content
 More content
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -43,6 +47,7 @@ More content
 Configure heading IDs and classes:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 use std::collections::HashMap;
 
@@ -66,8 +71,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Subsection
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -77,6 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Customize link handling:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,8 +103,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - [Another Internal](/about)
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -105,6 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Customize code block rendering:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -129,8 +142,11 @@ def greet(name):
 ```
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -140,6 +156,7 @@ def greet(name):
 Configure HTML output formatting:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -162,8 +179,11 @@ Line two
 <img src="test.jpg" alt="Test">
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -173,6 +193,7 @@ Line two
 Load configuration from a TOML file:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 use std::fs;
 use toml;
@@ -211,8 +232,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load and use config
     let config = load_config("config.toml")?;
     let markdown = "# Test\nSome content";
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    
+    println!("{}", output);
 
     Ok(())
 }

@@ -7,9 +7,11 @@ This guide provides practical examples of common use cases for `pulldown-html-ex
 Convert a basic Markdown document to HTML:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create configuration
     let config = HtmlConfig::default();
     
     let markdown = r#"
@@ -38,8 +40,13 @@ fn main() {
 ```
     "#;
 
-    let html = push_html(markdown, &config)?;
-    println!("{}", html);
+    // Create parser
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+
+    // Convert to HTML
+    push_html(&mut output, parser, &config)?;
+    println!("{}", output);
     Ok(())
 }
 ```
@@ -51,6 +58,7 @@ Read from and write to files:
 ```rust
 use std::fs::File;
 use std::io::Read;
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, write_html_io};
 
 fn convert_file(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -58,12 +66,13 @@ fn convert_file(input: &str, output: &str) -> Result<(), Box<dyn std::error::Err
     let mut markdown = String::new();
     File::open(input)?.read_to_string(&mut markdown)?;
 
-    // Set up config
+    // Set up config and parser
     let config = HtmlConfig::default();
+    let parser = Parser::new(&markdown);
 
     // Write HTML to file
     let output_file = File::create(output)?;
-    write_html_io(output_file, &markdown, &config)?;
+    write_html_io(output_file, parser, &config)?;
 
     Ok(())
 }
@@ -80,11 +89,14 @@ fn main() {
 Integrate with an HTML template:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 fn generate_page(title: &str, content: &str) -> Result<String, Box<dyn std::error::Error>> {
     let config = HtmlConfig::default();
-    let html_content = push_html(content, &config)?;
+    let parser = Parser::new(content);
+    let mut html_content = String::new();
+    push_html(&mut html_content, parser, &config)?;
 
     Ok(format!(
         r#"<!DOCTYPE html>
@@ -150,7 +162,8 @@ fn process_documents(
         let writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
         let mut renderer = create_html_renderer(writer);
         
-        renderer.run(Parser::new(&markdown))?;
+        let parser = Parser::new(&markdown);
+        renderer.run(parser)?;
         results.insert(name, output);
     }
 
@@ -178,14 +191,17 @@ fn main() {
 Proper error handling example:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, HtmlError, push_html};
 use std::error::Error;
 
 fn process_markdown(markdown: &str) -> Result<String, Box<dyn Error>> {
     let config = HtmlConfig::default();
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
     
-    match push_html(markdown, &config) {
-        Ok(html) => Ok(html),
+    match push_html(&mut output, parser, &config) {
+        Ok(()) => Ok(output),
         Err(HtmlError::Config(e)) => Err(format!("Configuration error: {}", e).into()),
         Err(HtmlError::Render(e)) => Err(format!("Rendering error: {}", e).into()),
         Err(HtmlError::Theme(e)) => Err(format!("Theme error: {}", e).into()),

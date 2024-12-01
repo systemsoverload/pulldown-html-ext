@@ -12,7 +12,7 @@ use pulldown_html_ext::{
     HeadingLevel, HtmlError
 };
 use pulldown_cmark_escape::{StrWrite, FmtWriter};
-use pulldown_cmark::Parser;
+use pulldown_cmark::{Parser, CowStr, Event};
 
 struct BootstrapWriter<W: StrWrite> {
     writer: W,
@@ -50,20 +50,38 @@ impl<W: StrWrite> HtmlWriter<W> for BootstrapWriter<W> {
     fn start_heading(
         &mut self,
         level: HeadingLevel,
-        _id: Option<&str>,
-        _classes: Vec<&str>
+        id: Option<&str>,
+        classes: &[CowStr],
+        attrs: &Vec<(CowStr, Option<CowStr>)>
     ) -> Result<(), HtmlError> {
-        let level_num = self.heading_level_to_u8(level);
+        let level_num = level as u8;
         let display_class = match level_num {
             1 => "display-1",
             2 => "display-2",
             3 => "display-3",
             _ => "display-4",
         };
-        self.write_str(&format!(
-            r#"<h{} class="{} fw-bold">"#,
-            level_num, display_class
-        ))
+        
+        self.write_str(&format!(r#"<h{} class="{} fw-bold""#, level_num, display_class))?;
+        
+        if let Some(id) = id {
+            self.write_str(&format!(r#" id="{}""#, id))?;
+        }
+        
+        if !classes.is_empty() {
+            let class_str = classes.iter().map(|s| s.as_ref()).collect::<Vec<_>>().join(" ");
+            self.write_str(&format!(r#" class="{}""#, class_str))?;
+        }
+        
+        for (key, value) in attrs {
+            self.write_str(" ")?;
+            self.write_str(key)?;
+            if let Some(val) = value {
+                self.write_str(&format!(r#"="{}""#, val))?;
+            }
+        }
+        
+        self.write_str(">")
     }
 }
 
@@ -85,7 +103,8 @@ Another paragraph here.
     );
     let mut renderer = create_html_renderer(writer);
     
-    renderer.run(Parser::new(markdown))?;
+    let parser = Parser::new(markdown);
+    renderer.run(parser)?;
     println!("{}", output);
     Ok(())
 }
@@ -102,7 +121,7 @@ use pulldown_html_ext::{
     HeadingLevel, HtmlError
 };
 use pulldown_cmark_escape::{StrWrite, FmtWriter};
-use pulldown_cmark::Parser;
+use pulldown_cmark::{Parser, CowStr};
 
 #[derive(Default)]
 struct SectionNumbers {
@@ -168,9 +187,10 @@ impl<W: StrWrite> HtmlWriter<W> for NumberedSectionsWriter<W> {
         &mut self,
         level: HeadingLevel,
         id: Option<&str>,
-        classes: Vec<&str>
+        classes: &[CowStr],
+        attrs: &Vec<(CowStr, Option<CowStr>)>
     ) -> Result<(), HtmlError> {
-        let level_num = self.heading_level_to_u8(level);
+        let level_num = level as u8;
         
         // Update section numbers
         while self.section_numbers.current.len() < level_num as usize {
@@ -185,43 +205,30 @@ impl<W: StrWrite> HtmlWriter<W> for NumberedSectionsWriter<W> {
 
         let section_number = self.section_numbers.to_string();
         
+        // Write the heading tag with number
         self.write_str(&format!(
-            r#"<h{} id="section-{}">"#,
+            r#"<h{} id="section-{}""#,
             level_num, section_number
         ))?;
+        
+        if !classes.is_empty() {
+            let class_str = classes.iter().map(|s| s.as_ref()).collect::<Vec<_>>().join(" ");
+            self.write_str(&format!(r#" class="{}""#, class_str))?;
+        }
+        
+        for (key, value) in attrs {
+            self.write_str(" ")?;
+            self.write_str(key)?;
+            if let Some(val) = value {
+                self.write_str(&format!(r#"="{}""#, val))?;
+            }
+        }
+        
+        self.write_str(">")?;
         self.write_str(&format!("{} ", section_number))?;
         
         Ok(())
     }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let markdown = r#"
-# Introduction
-
-## First Section
-Some content.
-
-### Subsection A
-More content.
-
-### Subsection B
-Even more content.
-
-## Second Section
-Final content.
-    "#;
-
-    let mut output = String::new();
-    let writer = NumberedSectionsWriter::new(
-        FmtWriter(&mut output),
-        HtmlConfig::default()
-    );
-    let mut renderer = create_html_renderer(writer);
-    
-    renderer.run(Parser::new(markdown))?;
-    println!("{}", output);
-    Ok(())
 }
 ```
 
@@ -256,17 +263,7 @@ impl<W: StrWrite> EnhancedCodeWriter<W> {
 }
 
 impl<W: StrWrite> HtmlWriter<W> for EnhancedCodeWriter<W> {
-    fn get_writer(&mut self) -> &mut W {
-        &mut self.writer
-    }
-
-    fn get_config(&self) -> &HtmlConfig {
-        &self.config
-    }
-
-    fn get_state(&mut self) -> &mut HtmlState {
-        &mut self.state
-    }
+    // ... implementation of required trait methods ...
 
     fn start_code_block(&mut self, kind: CodeBlockKind) -> Result<(), HtmlError> {
         self.line_count = 0;
@@ -308,84 +305,9 @@ impl<W: StrWrite> HtmlWriter<W> for EnhancedCodeWriter<W> {
             self.write_str(text)
         }
     }
-
-    fn end_code_block(&mut self) -> Result<(), HtmlError> {
-        self.write_str("</code></pre></div>")?;
-        
-        // Add JavaScript for copy functionality
-        if self.line_count > 0 {
-            self.write_str(r#"
-<script>
-function copyCode(button) {
-    const pre = button.nextElementSibling;
-    const code = pre.querySelector('code');
-    const text = code.innerText;
-    
-    navigator.clipboard.writeText(text).then(() => {
-        button.textContent = 'Copied!';
-        setTimeout(() => {
-            button.textContent = 'Copy';
-        }, 2000);
-    });
-}
-</script>
-<style>
-.code-block-wrapper {
-    position: relative;
-    margin: 1em 0;
-}
-.copy-button {
-    position: absolute;
-    top: 0.5em;
-    right: 0.5em;
-    padding: 0.5em;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    cursor: pointer;
-}
-.line-number {
-    display: inline-block;
-    width: 2em;
-    color: #888;
-    text-align: right;
-    margin-right: 1em;
-    user-select: none;
-}
-</style>
-"#)?;
-        }
-        
-        self.get_state().currently_in_code_block = false;
-        Ok(())
-    }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let markdown = r#"
-```rust
-fn main() {
-    println!("Hello, world!");
-    
-    for i in 0..5 {
-        println!("Number: {}", i);
-    }
 }
 ```
-    "#;
 
-    let mut output = String::new();
-    let writer = EnhancedCodeWriter::new(
-        FmtWriter(&mut output),
-        HtmlConfig::default()
-    );
-    let mut renderer = create_html_renderer(writer);
-    
-    renderer.run(Parser::new(markdown))?;
-    println!("{}", output);
-    Ok(())
-}
-```
 
 ## Next Steps
 

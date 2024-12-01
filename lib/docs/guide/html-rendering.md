@@ -16,11 +16,15 @@ The HTML rendering system consists of several key components:
 The simplest way to render Markdown to HTML:
 
 ```rust
+use pulldown_cmark::Parser;
 use pulldown_html_ext::{HtmlConfig, push_html};
 
 let config = HtmlConfig::default();
 let markdown = "# Hello\nThis is *markdown*";
-let html = push_html(markdown, &config)?;
+
+let parser = Parser::new(markdown);
+let mut output = String::new();
+push_html(&mut output, parser, &config)?;
 ```
 
 ## Working with the Renderer Directly
@@ -45,7 +49,6 @@ renderer.run(parser)?;
 The renderer maintains state during processing:
 
 ```rust
-#[derive(Default)]
 pub struct HtmlState {
     pub numbers: Vec<u32>,              // For ordered lists
     pub table_state: TableContext,      // Current table state
@@ -59,36 +62,59 @@ pub struct HtmlState {
 }
 ```
 
-This state helps track:
-- List nesting and numbering
-- Table structure and alignment
-- Header IDs
-- Special contexts (code blocks, footnotes)
+## Event Handling
 
-## Handling Different Elements
+The renderer processes various Markdown events:
 
-The renderer handles various Markdown elements:
+```rust
+impl<W: StrWrite, H: HtmlWriter<W>> HtmlRenderer<W, H> {
+    pub fn run<'a, I>(&mut self, iter: I) -> Result<()>
+    where
+        I: Iterator<Item = Event<'a>>,
+    {
+        let mut iter = iter.peekable();
+        while let Some(event) = iter.next() {
+            match event {
+                Event::Start(tag) => self.handle_start(&mut iter, tag)?,
+                Event::End(tag) => self.handle_end(tag)?,
+                Event::Text(text) => self.writer.text(&text)?,
+                Event::Code(text) => self.handle_inline_code(&text)?,
+                Event::Html(html) => self.writer.write_str(&html)?,
+                Event::SoftBreak => self.writer.soft_break()?,
+                Event::HardBreak => self.writer.hard_break()?,
+                Event::Rule => self.writer.horizontal_rule()?,
+                Event::FootnoteReference(name) => self.writer.footnote_reference(&name)?,
+                Event::TaskListMarker(checked) => self.writer.task_list_item(checked)?,
+                Event::InlineMath(_) | Event::DisplayMath(_) | Event::InlineHtml(_) => todo!(),
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+## Element Handling Examples
 
 ### Headers
 ```rust
-# Example Markdown
+// Input Markdown
 # Level 1
 ## Level 2
 
-# Generated HTML
+// Generated HTML
 <h1 id="heading-1">Level 1</h1>
 <h2 id="heading-2">Level 2</h2>
 ```
 
 ### Lists
 ```rust
-# Example Markdown
+// Input Markdown
 1. First
 2. Second
    * Nested
    * Items
 
-# Generated HTML
+// Generated HTML
 <ol>
   <li>First</li>
   <li>Second
@@ -102,12 +128,12 @@ The renderer handles various Markdown elements:
 
 ### Tables
 ```rust
-# Example Markdown
+// Input Markdown
 | Left | Center | Right |
 |:-----|:------:|------:|
 | 1    |   2    |     3 |
 
-# Generated HTML
+// Generated HTML
 <table>
   <thead>
     <tr>
@@ -140,13 +166,33 @@ pub enum HtmlError {
 }
 ```
 
-Handle errors appropriately in your code:
+Handle errors appropriately:
 
 ```rust
 fn render_markdown(markdown: &str) -> Result<String, HtmlError> {
     let config = HtmlConfig::default();
-    push_html(markdown, &config)
+    let parser = Parser::new(markdown);
+    let mut output = String::new();
+    push_html(&mut output, parser, &config)?;
+    Ok(output)
 }
+```
+
+## Writing Output
+
+The library supports different output methods:
+
+```rust
+// String output
+let mut output = String::new();
+push_html(&mut output, parser, &config)?;
+
+// Write to formatter
+write_html_fmt(&mut output, parser, &config)?;
+
+// Write to IO
+let file = File::create("output.html")?;
+write_html_io(file, parser, &config)?;
 ```
 
 ## Best Practices
@@ -162,9 +208,14 @@ fn render_markdown(markdown: &str) -> Result<String, HtmlError> {
    - Provide meaningful error messages
 
 3. **Performance**
+   - Create Parser instances appropriately
    - Reuse writers when processing multiple documents
    - Consider buffer size for large documents
-   - Profile rendering performance if needed
+
+4. **Memory Usage**
+   - Clear state between documents
+   - Be mindful of string allocations
+   - Handle large documents efficiently
 
 ## Next Steps
 
