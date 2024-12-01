@@ -1,6 +1,6 @@
 //! Utility functions for HTML rendering and string manipulation
 
-use pulldown_cmark::escape::StrWrite;
+use pulldown_cmark_escape::StrWrite;
 /// Escape special HTML characters in a string
 ///
 /// # Arguments

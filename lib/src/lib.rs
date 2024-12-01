@@ -5,17 +5,20 @@
 //! # Documentation
 //!
 //! - [API Documentation](https://docs.rs/pulldown-html-ext)
-//! - [User Guide](https://your-username.github.io/pulldown-html-ext)
-//! - [Examples](https://your-username.github.io/pulldown-html-ext/examples)
+//! - [User Guide](https://systemsoverload.github.io/pulldown-html-ext)
+//! - [Examples](https://systemsoverload.github.io/pulldown-html-ext/examples)
 //!
 //! # Quick Start
 //!
 //! ```rust
 //! use pulldown_html_ext::{HtmlConfig, push_html};
+//! use pulldown_cmark::Parser;
 //!
 //! let config = HtmlConfig::default();
 //! let markdown = "# Hello\nThis is *markdown*";
-//! let html = push_html(markdown, &config).unwrap();
+//! let parser = Parser::new(markdown);
+//! let mut output = String::new();
+//! let html = push_html(&mut output, parser, &config).unwrap();
 //! ```
 //!
 //! Custom rendering with a custom writer:
@@ -80,19 +83,24 @@ pub use html::{
 };
 
 #[cfg(test)]
-mod tests {
+mod tests_lib {
     use super::*;
+    use pulldown_cmark::Parser;
     use std::collections::HashMap;
 
     #[test]
     fn test_basic_markdown() {
         let config = HtmlConfig::default();
         let markdown = "# Hello\nThis is a test.";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains("<h1"));
-        assert!(html.contains("Hello"));
-        assert!(html.contains("<p>"));
-        assert!(html.contains("This is a test."));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+
+        assert!(output.contains("<h1"));
+        assert!(output.contains("Hello"));
+        assert!(output.contains("<p>"));
+        assert!(output.contains("This is a test."));
     }
 
     #[test]
@@ -106,9 +114,13 @@ mod tests {
         };
 
         let markdown = "# Main Title\n## Subtitle";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains(r#"<h1 id="heading-1" class="title""#));
-        assert!(html.contains(r#"<h2 id="heading-2" class="subtitle""#));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+
+        assert!(output.contains(r#"<h1 id="heading-1" class="title""#));
+        assert!(output.contains(r#"<h2 id="heading-2" class="subtitle""#));
     }
 
     #[test]
@@ -117,12 +129,18 @@ mod tests {
         config.elements.code_blocks.default_language = Some("text".to_string());
 
         let markdown = "```python\nprint('hello')\n```";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains(r#"<code class="language-python">"#));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(output.contains(r#"<code class="language-python">"#));
 
         let markdown = "```\nplain text\n```";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains(r#"<code class="language-text">"#));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(output.contains(r#"<code class="language-text">"#));
     }
 
     #[test]
@@ -132,14 +150,20 @@ mod tests {
         config.elements.links.open_external_blank = true;
 
         let markdown = "[External](https://example.com)";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains(r#"rel="nofollow""#));
-        assert!(html.contains(r#"target="_blank""#));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(output.contains(r#"rel="nofollow""#));
+        assert!(output.contains(r#"target="_blank""#));
 
         let markdown = "[Internal](/local)";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(!html.contains(r#"rel="nofollow""#));
-        assert!(!html.contains(r#"target="_blank""#));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(!output.contains(r#"rel="nofollow""#));
+        assert!(!output.contains(r#"target="_blank""#));
     }
 
     #[test]
@@ -150,8 +174,52 @@ mod tests {
         config.html.xhtml_style = true;
 
         let markdown = "Test & test\nNew line";
-        let html = push_html(markdown, &config).unwrap();
-        assert!(html.contains("&amp;"));
-        assert!(!html.contains("<br"));
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(output.contains("&amp;"));
+        assert!(!output.contains("<br"));
+    }
+
+    #[test]
+    fn test_custom_parser_options() {
+        use pulldown_cmark::{Options, Parser};
+
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_STRIKETHROUGH);
+
+        let markdown = "~~strikethrough~~";
+        let parser = Parser::new_ext(markdown, options);
+        let mut output = String::new();
+        let config = HtmlConfig::default();
+
+        push_html(&mut output, parser, &config).unwrap();
+        assert!(output.contains("<del>"));
+        assert!(output.contains("</del>"));
+    }
+
+    #[test]
+    fn test_streaming_parser() {
+        let config = HtmlConfig::default();
+        let mut output = String::new();
+
+        // Simulate streaming input by creating multiple parsers
+        let chunk1 = "# Title\n";
+        let chunk2 = "Paragraph 1\n";
+        let chunk3 = "* List item";
+
+        let parser1 = Parser::new(chunk1);
+        push_html(&mut output, parser1, &config).unwrap();
+
+        let parser2 = Parser::new(chunk2);
+        push_html(&mut output, parser2, &config).unwrap();
+
+        let parser3 = Parser::new(chunk3);
+        push_html(&mut output, parser3, &config).unwrap();
+
+        assert!(output.contains("<h1"));
+        assert!(output.contains("<p>"));
+        assert!(output.contains("<li>"));
     }
 }

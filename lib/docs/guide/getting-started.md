@@ -70,5 +70,5 @@ write_html_io(file, markdown, &config)?;
 ## Additional Resources
 
 - [API Documentation](https://docs.rs/pulldown-html-ext)
-- [GitHub Repository](https://github.com/your-username/pulldown-html-ext)
+- [GitHub Repository](https://github.com/systemsoverload/pulldown-html-ext)
 - [Examples](../examples/basic-usage.md)

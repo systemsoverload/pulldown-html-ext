@@ -16,8 +16,7 @@ mod syntect;
 pub use self::syntect::{
     push_html_with_highlighting, SyntectConfig, SyntectConfigStyle, SyntectWriter,
 };
-
-use pulldown_cmark::{Event, Parser};
+use pulldown_cmark::{Event, Tag, TagEnd};
 use pulldown_cmark_escape::{FmtWriter, IoWriter, StrWrite};
 use std::iter::Peekable;
 
@@ -65,6 +64,7 @@ impl<W: StrWrite, H: HtmlWriter<W>> HtmlRenderer<W, H> {
                 Event::Rule => self.writer.horizontal_rule()?,
                 Event::FootnoteReference(name) => self.writer.footnote_reference(&name)?,
                 Event::TaskListMarker(checked) => self.writer.task_list_item(checked)?,
+                Event::InlineMath(_) | Event::DisplayMath(_) | Event::InlineHtml(_) => todo!(),
             }
         }
         Ok(())
@@ -79,53 +79,77 @@ impl<W: StrWrite, H: HtmlWriter<W>> HtmlRenderer<W, H> {
         I: Iterator<Item = Event<'a>>,
     {
         match tag {
-            pulldown_cmark::Tag::Paragraph => self.writer.start_paragraph()?,
-            pulldown_cmark::Tag::Heading(level, id, classes) => {
-                self.writer.start_heading(level, id, classes)?
-            }
-            pulldown_cmark::Tag::BlockQuote => self.writer.start_blockquote()?,
-            pulldown_cmark::Tag::CodeBlock(kind) => self.writer.start_code_block(kind)?,
-            pulldown_cmark::Tag::List(start) => self.writer.start_list(start)?,
-            pulldown_cmark::Tag::Item => self.writer.start_list_item()?,
-            pulldown_cmark::Tag::FootnoteDefinition(name) => {
-                self.writer.start_footnote_definition(&name)?
-            }
-            pulldown_cmark::Tag::Table(alignments) => self.writer.start_table(alignments)?,
-            pulldown_cmark::Tag::TableHead => self.writer.start_table_head()?,
-            pulldown_cmark::Tag::TableRow => self.writer.start_table_row()?,
-            pulldown_cmark::Tag::TableCell => self.writer.start_table_cell()?,
-            pulldown_cmark::Tag::Emphasis => self.writer.start_emphasis()?,
-            pulldown_cmark::Tag::Strong => self.writer.start_strong()?,
-            pulldown_cmark::Tag::Strikethrough => self.writer.start_strikethrough()?,
-            pulldown_cmark::Tag::Link(link_type, dest, title) => {
-                self.writer.start_link(link_type, &dest, &title)?
-            }
-            pulldown_cmark::Tag::Image(link_type, dest, title) => {
-                self.writer.start_image(link_type, &dest, &title, iter)?
-            }
+            Tag::Paragraph => self.writer.start_paragraph()?,
+            Tag::Heading {
+                level,
+                id,
+                classes,
+                attrs,
+            } => self
+                .writer
+                .start_heading(level, id.as_deref(), &classes, &attrs)?,
+            Tag::BlockQuote(_) => self.writer.start_blockquote()?,
+            Tag::CodeBlock(kind) => self.writer.start_code_block(kind)?,
+            Tag::List(start) => self.writer.start_list(start)?,
+            Tag::Item => self.writer.start_list_item()?,
+            Tag::FootnoteDefinition(name) => self.writer.start_footnote_definition(&name)?,
+            Tag::Table(alignments) => self.writer.start_table(alignments)?,
+            Tag::TableHead => self.writer.start_table_head()?,
+            Tag::TableRow => self.writer.start_table_row()?,
+            Tag::TableCell => self.writer.start_table_cell()?,
+            Tag::Emphasis => self.writer.start_emphasis()?,
+            Tag::Strong => self.writer.start_strong()?,
+            Tag::Strikethrough => self.writer.start_strikethrough()?,
+            Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id: _,
+            } => self.writer.start_link(link_type, &dest_url, &title)?,
+            Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id: _,
+            } => self
+                .writer
+                .start_image(link_type, &dest_url, &title, iter)?,
+
+            Tag::DefinitionList => self.writer.start_definition_list()?,
+            Tag::DefinitionListTitle => self.writer.start_definition_list_title()?,
+            Tag::DefinitionListDefinition => self.writer.start_definition_list_definition()?,
+
+            Tag::MetadataBlock(kind) => self.writer.start_metadata_block(&kind)?,
+            Tag::HtmlBlock => (),
         }
         Ok(())
     }
 
-    fn handle_end(&mut self, tag: pulldown_cmark::Tag) -> Result<()> {
+    fn handle_end(&mut self, tag: TagEnd) -> Result<()> {
         match tag {
-            pulldown_cmark::Tag::Paragraph => self.writer.end_paragraph()?,
-            pulldown_cmark::Tag::Heading(level, ..) => self.writer.end_heading(level)?,
-            pulldown_cmark::Tag::BlockQuote => self.writer.end_blockquote()?,
-            pulldown_cmark::Tag::CodeBlock(_) => self.writer.end_code_block()?,
-            pulldown_cmark::Tag::List(Some(_)) => self.writer.end_list(true)?,
-            pulldown_cmark::Tag::List(None) => self.writer.end_list(false)?,
-            pulldown_cmark::Tag::Item => self.writer.end_list_item()?,
-            pulldown_cmark::Tag::FootnoteDefinition(_) => self.writer.end_footnote_definition()?,
-            pulldown_cmark::Tag::Table(_) => self.writer.end_table()?,
-            pulldown_cmark::Tag::TableHead => self.writer.end_table_head()?,
-            pulldown_cmark::Tag::TableRow => self.writer.end_table_row()?,
-            pulldown_cmark::Tag::TableCell => self.writer.end_table_cell()?,
-            pulldown_cmark::Tag::Emphasis => self.writer.end_emphasis()?,
-            pulldown_cmark::Tag::Strong => self.writer.end_strong()?,
-            pulldown_cmark::Tag::Strikethrough => self.writer.end_strikethrough()?,
-            pulldown_cmark::Tag::Link(..) => self.writer.end_link()?,
-            pulldown_cmark::Tag::Image(..) => self.writer.end_image()?,
+            TagEnd::Paragraph => self.writer.end_paragraph()?,
+            TagEnd::Heading(level) => self.writer.end_heading(level)?,
+            TagEnd::BlockQuote(_) => self.writer.end_blockquote()?,
+            TagEnd::CodeBlock => self.writer.end_code_block()?,
+            TagEnd::List(b) => self.writer.end_list(b)?,
+            // TagEnd::List(None) => self.writer.end_list(false)?,
+            TagEnd::Item => self.writer.end_list_item()?,
+            TagEnd::FootnoteDefinition => self.writer.end_footnote_definition()?,
+            TagEnd::Table => self.writer.end_table()?,
+            TagEnd::TableHead => self.writer.end_table_head()?,
+            TagEnd::TableRow => self.writer.end_table_row()?,
+            TagEnd::TableCell => self.writer.end_table_cell()?,
+            TagEnd::Emphasis => self.writer.end_emphasis()?,
+            TagEnd::Strong => self.writer.end_strong()?,
+            TagEnd::Strikethrough => self.writer.end_strikethrough()?,
+            TagEnd::Link {} => self.writer.end_link()?,
+            TagEnd::Image {} => self.writer.end_image()?,
+            TagEnd::DefinitionList => self.writer.end_definition_list()?,
+            TagEnd::DefinitionListTitle => self.writer.end_definition_list_title()?,
+            TagEnd::DefinitionListDefinition => self.writer.end_definition_list_title()?,
+
+            TagEnd::MetadataBlock(_) => self.writer.end_metadata_block()?,
+            TagEnd::HtmlBlock => (),
         }
         Ok(())
     }
@@ -138,30 +162,67 @@ impl<W: StrWrite, H: HtmlWriter<W>> HtmlRenderer<W, H> {
     }
 }
 
-pub fn push_html(markdown: &str, config: &HtmlConfig) -> Result<String> {
-    let mut output = String::new();
-    write_html_fmt(&mut output, markdown, config)?;
-    Ok(output)
+/// Renders markdown events to HTML and appends to the provided string
+///
+/// # Arguments
+///
+/// * `output` - String buffer to append the HTML output to
+/// * `iter` - Iterator of markdown events to process
+/// * `config` - Configuration for HTML rendering
+///
+/// # Example
+///
+/// ```rust
+/// use pulldown_cmark::Parser;
+/// use pulldown_html_ext::{HtmlConfig, push_html};
+///
+/// let markdown = "# Hello\n* Item 1\n* Item 2";
+/// let parser = Parser::new(markdown);
+/// let mut output = String::new();
+/// let config = HtmlConfig::default();
+///
+/// push_html(&mut output, parser, &config).unwrap();
+/// assert!(output.contains("<h1"));
+/// ```
+pub fn push_html<'a, I>(output: &mut String, iter: I, config: &HtmlConfig) -> Result<()>
+where
+    I: Iterator<Item = Event<'a>>,
+{
+    write_html_fmt(output, iter, config)
 }
 
-pub fn write_html_fmt<W>(writer: W, markdown: &str, config: &HtmlConfig) -> Result<()>
+/// Renders markdown events to HTML using a fmt::Write implementation
+///
+/// # Arguments
+///
+/// * `writer` - Any type implementing fmt::Write
+/// * `iter` - Iterator of markdown events to process
+/// * `config` - Configuration for HTML rendering
+pub fn write_html_fmt<'a, W, I>(writer: W, iter: I, config: &HtmlConfig) -> Result<()>
 where
     W: std::fmt::Write,
+    I: Iterator<Item = Event<'a>>,
 {
-    let parser = Parser::new(markdown);
     let writer = DefaultHtmlWriter::new(FmtWriter(writer), config);
     let mut renderer = HtmlRenderer::new(writer);
-    renderer.run(parser)
+    renderer.run(iter)
 }
 
-pub fn write_html_io<W>(writer: W, markdown: &str, config: &HtmlConfig) -> Result<()>
+/// Renders markdown events to HTML using an io::Write implementation
+///
+/// # Arguments
+///
+/// * `writer` - Any type implementing io::Write
+/// * `iter` - Iterator of markdown events to process
+/// * `config` - Configuration for HTML rendering
+pub fn write_html_io<'a, W, I>(writer: W, iter: I, config: &HtmlConfig) -> Result<()>
 where
     W: std::io::Write,
+    I: Iterator<Item = Event<'a>>,
 {
-    let parser = Parser::new(markdown);
     let writer = DefaultHtmlWriter::new(IoWriter(writer), config);
     let mut renderer = HtmlRenderer::new(writer);
-    renderer.run(parser)
+    renderer.run(iter)
 }
 
 pub fn create_html_renderer<W: StrWrite, H: HtmlWriter<W>>(writer: H) -> HtmlRenderer<W, H> {
@@ -169,24 +230,64 @@ pub fn create_html_renderer<W: StrWrite, H: HtmlWriter<W>>(writer: H) -> HtmlRen
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_mod {
     use super::*;
     use html_compare_rs::assert_html_eq;
+    use pulldown_cmark::Parser;
+
+    #[test]
+    fn test_push_html() {
+        let markdown = "# Hello\n\nThis is a test.";
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+        let config = HtmlConfig::default();
+
+        push_html(&mut output, parser, &config).unwrap();
+
+        assert_html_eq!(
+            output,
+            r#"<h1 id="heading-1">Hello</h1><p>This is a test.</p>"#
+        );
+    }
 
     #[test]
     fn test_write_html_fmt() {
-        let config = HtmlConfig::default();
+        let markdown = "# Test\n* Item 1\n* Item 2";
+        let parser = Parser::new(markdown);
         let mut output = String::new();
-        write_html_fmt(&mut output, "# Test", &config).unwrap();
-        assert_html_eq!(output, r#"<h1 id="heading-1">Test</h1>"#);
+        let config = HtmlConfig::default();
+
+        write_html_fmt(&mut output, parser, &config).unwrap();
+
+        assert_html_eq!(
+            output,
+            r#"<h1 id="heading-1">Test</h1><ul><li>Item 1</li><li>Item 2</li></ul>"#
+        );
     }
 
     #[test]
     fn test_write_html_io() {
-        let config = HtmlConfig::default();
+        let markdown = "# Test";
+        let parser = Parser::new(markdown);
         let mut output = Vec::new();
-        write_html_io(&mut output, "# Test", &config).unwrap();
+        let config = HtmlConfig::default();
+
+        write_html_io(&mut output, parser, &config).unwrap();
+
         let result = String::from_utf8(output).unwrap();
         assert_html_eq!(result, r#"<h1 id="heading-1">Test</h1>"#);
+    }
+
+    #[test]
+    fn test_with_syntax_highlighting() {
+        let markdown = "```rust\nfn main() {\n    println!(\"Hello\");\n}\n```";
+        let parser = Parser::new(markdown);
+        let mut output = String::new();
+        let config = HtmlConfig::default();
+
+        push_html(&mut output, parser, &config).unwrap();
+
+        assert!(output.contains(r#"<code class="language-rust">"#));
+        assert!(output.contains("println"));
     }
 }

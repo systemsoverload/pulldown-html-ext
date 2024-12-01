@@ -3,7 +3,9 @@ use crate::html::state::HtmlState;
 use crate::html::HtmlError;
 use crate::HtmlConfig;
 
-use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType};
+use pulldown_cmark::{
+    Alignment, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, MetadataBlockKind,
+};
 use pulldown_cmark_escape::{escape_href, escape_html, escape_html_body_text, StrWrite};
 use std::iter::Peekable;
 
@@ -43,27 +45,6 @@ pub trait HtmlWriter<W: StrWrite> {
         url.starts_with("http://") || url.starts_with("https://")
     }
 
-    /// Convert a HeadingLevel to a numeric level
-    fn heading_level_to_u8(&self, level: HeadingLevel) -> u8 {
-        match level {
-            HeadingLevel::H1 => 1,
-            HeadingLevel::H2 => 2,
-            HeadingLevel::H3 => 3,
-            HeadingLevel::H4 => 4,
-            HeadingLevel::H5 => 5,
-            HeadingLevel::H6 => 6,
-        }
-    }
-
-    fn generate_heading_id(&self, level: HeadingLevel) -> String {
-        let level_num = self.heading_level_to_u8(level);
-        format!(
-            "{}{}",
-            self.get_config().elements.headings.id_prefix,
-            level_num
-        )
-    }
-
     fn start_paragraph(&mut self) -> Result<(), HtmlError> {
         if !self.get_state().currently_in_footnote {
             self.write_str("<p")?;
@@ -84,13 +65,28 @@ pub trait HtmlWriter<W: StrWrite> {
         &mut self,
         level: HeadingLevel,
         id: Option<&str>,
-        classes: Vec<&str>,
+        classes: &[CowStr],
+        attrs: &Vec<(CowStr, Option<CowStr>)>,
     ) -> Result<(), HtmlError> {
-        let tag = format!("h{}", self.heading_level_to_u8(level));
-        self.write_str(&format!("<{}", tag))?;
+        // Get all config values up front
+        let level_num = level as u8;
+        let add_ids = self.get_config().elements.headings.add_ids;
+        let id_prefix = self.get_config().elements.headings.id_prefix.clone();
+        let level_classes = self
+            .get_config()
+            .elements
+            .headings
+            .level_classes
+            .get(&level_num)
+            .cloned();
 
-        if self.get_config().elements.headings.add_ids {
-            let heading_id = id.map_or_else(|| self.generate_heading_id(level), |s| s.to_string());
+        // Start the heading tag
+        self.write_str(&format!("<h{}", level_num))?;
+
+        // Handle ID attribute
+        if add_ids {
+            let heading_id =
+                id.map_or_else(|| format!("{}{}", id_prefix, level_num), |s| s.to_string());
             self.write_str(" id=\"")?;
             escape_html(self.get_writer(), &heading_id)
                 .map_err(|_| HtmlError::Write(std::fmt::Error))?;
@@ -98,18 +94,12 @@ pub trait HtmlWriter<W: StrWrite> {
             self.get_state().heading_stack.push(heading_id);
         }
 
+        // Combine and handle classes
         let mut all_classes = Vec::new();
-        let level_num = self.heading_level_to_u8(level);
-        if let Some(level_class) = self
-            .get_config()
-            .elements
-            .headings
-            .level_classes
-            .get(&level_num)
-        {
-            all_classes.push(level_class.clone());
+        if let Some(level_class) = level_classes {
+            all_classes.push(level_class);
         }
-        all_classes.extend(classes.into_iter().map(|s| s.to_string()));
+        all_classes.extend(classes.iter().map(|s| s.to_string()));
 
         if !all_classes.is_empty() {
             self.write_str(" class=\"")?;
@@ -118,13 +108,26 @@ pub trait HtmlWriter<W: StrWrite> {
             self.write_str("\"")?;
         }
 
-        self.write_attributes(&tag)?;
-        self.write_str(">")?;
-        Ok(())
-    }
+        // Handle additional attributes
+        for (key, value) in attrs {
+            self.write_str(" ")?;
+            escape_html(self.get_writer(), key).map_err(|_| HtmlError::Write(std::fmt::Error))?;
+            if let Some(val) = value {
+                self.write_str("=\"")?;
+                escape_html(self.get_writer(), val)
+                    .map_err(|_| HtmlError::Write(std::fmt::Error))?;
+                self.write_str("\"")?;
+            }
+        }
 
+        // Add any configured element attributes
+        self.write_attributes(&format!("h{}", level_num))?;
+
+        // Close the opening tag
+        self.write_str(">")
+    }
     fn end_heading(&mut self, level: HeadingLevel) -> Result<(), HtmlError> {
-        self.write_str(&format!("</h{}>", self.heading_level_to_u8(level)))
+        self.write_str(&format!("</{}>", level))
     }
 
     fn start_blockquote(&mut self) -> Result<(), HtmlError> {
@@ -444,6 +447,50 @@ pub trait HtmlWriter<W: StrWrite> {
         } else {
             self.write_str(text)?;
         }
+        Ok(())
+    }
+
+    fn start_definition_list(&mut self) -> Result<(), HtmlError> {
+        self.write_str("<dl")?;
+        self.write_attributes("dl")?;
+        self.write_str(">")
+    }
+
+    fn end_definition_list(&mut self) -> Result<(), HtmlError> {
+        self.write_str("</dl>")
+    }
+
+    fn start_definition_list_title(&mut self) -> Result<(), HtmlError> {
+        self.write_str("<dt")?;
+        self.write_attributes("dt")?;
+        self.write_str(">")
+    }
+
+    fn end_definition_list_title(&mut self) -> Result<(), HtmlError> {
+        self.write_str("</dt>")
+    }
+
+    fn start_definition_list_definition(&mut self) -> Result<(), HtmlError> {
+        self.write_str("<dd")?;
+        self.write_attributes("dd")?;
+        self.write_str(">")
+    }
+
+    fn end_definition_list_definition(&mut self) -> Result<(), HtmlError> {
+        self.write_str("</dd>")
+    }
+
+    fn start_metadata_block(
+        &mut self,
+        _metadata_type: &MetadataBlockKind,
+    ) -> Result<(), HtmlError> {
+        // TODO - implement this
+        //self.get_state().in_non_writing_block = true
+        Ok(())
+    }
+    fn end_metadata_block(&mut self) -> Result<(), HtmlError> {
+        // TODO - implement this
+        //self.get_state().in_non_writing_block = false
         Ok(())
     }
 

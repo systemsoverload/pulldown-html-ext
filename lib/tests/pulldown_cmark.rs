@@ -1,7 +1,6 @@
 use html_compare_rs::{assert_html_eq, presets::markdown};
-use pulldown_cmark::{html, BrokenLink, Options, Parser};
-use pulldown_html_ext::push_html;
-use pulldown_html_ext::HtmlConfig;
+use pulldown_cmark::{BrokenLink, Options, Parser};
+use pulldown_html_ext::{push_html, HtmlConfig};
 
 #[test]
 fn test_script_block_single_line() {
@@ -29,8 +28,10 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -61,8 +62,10 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -79,8 +82,10 @@ fn test_processing_instruction() {
 <p>Useless</p>
 ?>"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -97,8 +102,10 @@ fn test_html_comment() {
 <p>Useless</p>
 -->"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -115,8 +122,10 @@ fn test_cdata_section() {
 <p>Useless</p>
 ]]>"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -131,8 +140,10 @@ Some things are here...
 Some things are here...
 >"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -162,12 +173,13 @@ console.log("fooooo");
 }
 </script>"##;
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_table() {
     let original = "A | B\n---|---\nfoo | bar";
     let expected = r##"<table>
@@ -177,8 +189,10 @@ fn test_table() {
 
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_TABLES);
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new_ext(original, opts);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -186,8 +200,10 @@ fn test_horizontal_rule_dash() {
     let original = "---";
     let expected = "<hr>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -195,8 +211,10 @@ fn test_horizontal_rule_asterisk() {
     let original = "* * *";
     let expected = "<hr>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -204,8 +222,10 @@ fn test_strikethrough_disabled() {
     let original = "hi ~~no~~";
     let expected = "<p>hi ~~no~~</p>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
@@ -228,18 +248,25 @@ fn test_broken_link_callback() {
         }
     };
 
-    let p = Parser::new_with_broken_link_callback(original, Options::empty(), Some(&mut callback));
-    let mut s = String::new();
-    html::push_html(&mut s, p);
-    assert_html_eq!(s, expected, markdown());
+    let parser =
+        Parser::new_with_broken_link_callback(original, Options::empty(), Some(&mut callback));
+    let mut output = String::new();
+    let mut config = HtmlConfig::default();
+    config.html.break_on_newline = false;
+    config.elements.links.nofollow_external = false;
+    config.elements.links.open_external_blank = false;
+    push_html(&mut output, parser, &config).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
 fn test_code_with_newlines() {
     for original in ["`\n `x", "` \n`x"] {
         let expected = "<p><code>  </code>x</p>";
-        let html = push_html(original, &HtmlConfig::default()).unwrap();
-        assert_html_eq!(html, expected, markdown());
+        let parser = Parser::new(original);
+        let mut output = String::new();
+        push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+        assert_html_eq!(output, expected, markdown());
     }
 }
 
@@ -248,57 +275,70 @@ fn test_code_with_newlines_at_boundaries() {
     let original = "`\nx\n`x";
     let expected = "<p><code>x</code>x</p>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_trim_whitespace_at_paragraph_end() {
     let original = "one\ntwo \t";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    let mut config = HtmlConfig::default();
+    config.html.break_on_newline = false;
+    push_html(&mut output, parser, &config).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_code_with_internal_newlines() {
     for original in ["`\nx \ny\n`x", "`x \ny`x", "`x\n y`x"] {
         let expected = "<p><code>x  y</code>x</p>";
-        let html = push_html(original, &HtmlConfig::default()).unwrap();
-        assert_html_eq!(html, expected, markdown());
+        let parser = Parser::new(original);
+        let mut output = String::new();
+        push_html(&mut output, parser, &HtmlConfig::default()).unwrap();
+        assert_html_eq!(output, expected, markdown());
     }
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_trim_whitespace_and_newline_at_paragraph_end() {
     let expected = "<p>one\ntwo</p>";
     let mut config = HtmlConfig::default();
     config.html.break_on_newline = false;
 
-    let html = push_html("one\ntwo \t\n", &config).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new("one\ntwo \t\n");
+    let mut output = String::new();
+    push_html(&mut output, parser, &config).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_trim_space_before_newline_at_paragraph_end() {
     let original = "one\ntwo \n";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    let mut config = HtmlConfig::default();
+    config.html.break_on_newline = false;
+    push_html(&mut output, parser, &config).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }
 
 #[test]
-#[ignore = "TODO - Broken"]
 fn test_trim_space_before_soft_break() {
     let original = "one \ntwo";
     let expected = "<p>one\ntwo</p>";
 
-    let html = push_html(original, &HtmlConfig::default()).unwrap();
-    assert_html_eq!(html, expected, markdown());
+    let parser = Parser::new(original);
+    let mut output = String::new();
+    let mut config = HtmlConfig::default();
+    config.html.break_on_newline = false;
+    push_html(&mut output, parser, &config).unwrap();
+    assert_html_eq!(output, expected, markdown());
 }

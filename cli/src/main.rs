@@ -1,4 +1,5 @@
 use clap::Parser;
+use pulldown_cmark::Parser as MarkdownParser;
 use pulldown_html_ext::HtmlConfig;
 use std::fs;
 use std::fs::File;
@@ -52,17 +53,20 @@ fn main() -> io::Result<()> {
         None => HtmlConfig::default(),
     };
 
+    // Create markdown parser
+    let parser = MarkdownParser::new(&input);
+
     // Convert markdown to HTML and write to output
     match args.output {
         Some(path) => {
             let file = File::create(path)?;
-            pulldown_html_ext::write_html_io(file, &input, &config)
+            pulldown_html_ext::write_html_io(file, parser, &config)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         }
         None => {
             let stdout = io::stdout();
             let handle = stdout.lock();
-            pulldown_html_ext::write_html_io(handle, &input, &config)
+            pulldown_html_ext::write_html_io(handle, parser, &config)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         }
     }
