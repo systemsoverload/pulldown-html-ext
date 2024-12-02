@@ -76,7 +76,19 @@ fn process_html_writer(
         #docs
         #input
 
-        impl<W: StrWrite> HtmlWriter<W> for #name<W> {}
+        impl<W: StrWrite> HtmlWriter<W> for #name<W> {
+            fn get_writer(&mut self) -> &mut W {
+                self.base.get_writer()
+            }
+
+            fn get_config(&self) -> &HtmlConfig {
+                self.base.get_config()
+            }
+
+            fn get_state(&mut self) -> &mut HtmlState {
+                self.base.get_state()
+            }
+        }
     };
 
     Ok(expanded)
