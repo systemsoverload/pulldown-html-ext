@@ -766,13 +766,14 @@ checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
 
 [[package]]
 name = "pulldown-html-ext"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ego-tree",
  "html-compare-rs",
  "lazy_static",
  "pulldown-cmark",
  "pulldown-cmark-escape",
+ "pulldown-html-ext-derive",
  "scraper",
  "serde",
  "serde_json",
@@ -783,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "pulldown-html-ext-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -796,7 +797,7 @@ dependencies = [
 
 [[package]]
 name = "pulldown-html-ext-derive"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "proc-macro2",
  "pulldown-cmark-escape",

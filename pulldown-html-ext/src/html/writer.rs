@@ -530,6 +530,37 @@ pub trait HtmlWriter<W: StrWrite> {
     }
 }
 
+// Default bases to derive from, implements the default getter methods.
+pub struct HtmlWriterBase<W: StrWrite> {
+    writer: W,
+    config: HtmlConfig,
+    state: HtmlState,
+}
+
+impl<W: StrWrite> HtmlWriterBase<W> {
+    pub fn new(writer: W, config: HtmlConfig) -> Self {
+        Self {
+            writer,
+            config,
+            state: HtmlState::new(),
+        }
+    }
+}
+
+impl<W: StrWrite> HtmlWriter<W> for HtmlWriterBase<W> {
+    fn get_writer(&mut self) -> &mut W {
+        &mut self.writer
+    }
+
+    fn get_config(&self) -> &HtmlConfig {
+        &self.config
+    }
+
+    fn get_state(&mut self) -> &mut HtmlState {
+        &mut self.state
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -203,7 +203,7 @@ where
     W: std::fmt::Write,
     I: Iterator<Item = Event<'a>>,
 {
-    let writer = DefaultHtmlWriter::new(FmtWriter(writer), config);
+    let writer = DefaultHtmlWriter::new(FmtWriter(writer), config.clone());
     let mut renderer = HtmlRenderer::new(writer);
     renderer.run(iter)
 }
@@ -220,7 +220,7 @@ where
     W: std::io::Write,
     I: Iterator<Item = Event<'a>>,
 {
-    let writer = DefaultHtmlWriter::new(IoWriter(writer), config);
+    let writer = DefaultHtmlWriter::new(IoWriter(writer), config.clone());
     let mut renderer = HtmlRenderer::new(writer);
     renderer.run(iter)
 }

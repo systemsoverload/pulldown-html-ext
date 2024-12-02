@@ -3,36 +3,55 @@ use pulldown_cmark_escape::StrWrite;
 use crate::html::config::HtmlConfig;
 use crate::html::state::HtmlState;
 use crate::html::writer::HtmlWriter;
+use crate::html_writer;
 
-/// Default HTML writer implementation that can work with any StrWrite-compatible writer
-pub struct DefaultHtmlWriter<'a, W: StrWrite> {
+/// Base type for HTML writers that handles common functionality
+pub struct HtmlWriterBase<W: StrWrite> {
     writer: W,
-    config: &'a HtmlConfig,
+    config: HtmlConfig,
     state: HtmlState,
 }
 
-impl<'a, W: StrWrite> DefaultHtmlWriter<'a, W> {
-    /// Create a new DefaultHtmlWriter with the given writer and configuration
-    pub fn new(writer: W, config: &'a HtmlConfig) -> Self {
+impl<W: StrWrite> HtmlWriterBase<W> {
+    /// Create a new HtmlWriterBase with the given writer and configuration
+    pub fn new(writer: W, config: HtmlConfig) -> Self {
         Self {
             writer,
             config,
             state: HtmlState::new(),
         }
     }
-}
 
-impl<'a, W: StrWrite> HtmlWriter<W> for DefaultHtmlWriter<'a, W> {
-    fn get_writer(&mut self) -> &mut W {
+    /// Get a mutable reference to the underlying writer
+    pub fn get_writer(&mut self) -> &mut W {
         &mut self.writer
     }
 
-    fn get_config(&self) -> &HtmlConfig {
-        self.config
+    /// Get a reference to the configuration
+    pub fn get_config(&self) -> &HtmlConfig {
+        &self.config
     }
 
-    fn get_state(&mut self) -> &mut HtmlState {
+    /// Get a mutable reference to the state
+    pub fn get_state(&mut self) -> &mut HtmlState {
         &mut self.state
+    }
+}
+
+/// Default HTML writer implementation that can work with any StrWrite-compatible writer
+/// This should be the approximate amount of code any custom implementation needs to
+/// provide
+#[html_writer]
+pub struct DefaultHtmlWriter<W: StrWrite> {
+    base: HtmlWriterBase<W>,
+}
+
+impl<W: StrWrite> DefaultHtmlWriter<W> {
+    /// Create a new DefaultHtmlWriter with the given writer and configuration
+    pub fn new(writer: W, config: HtmlConfig) -> Self {
+        Self {
+            base: HtmlWriterBase::new(writer, config.clone()),
+        }
     }
 }
 
@@ -46,7 +65,7 @@ mod tests {
     fn test_basic_writing() {
         let mut output = String::new();
         let config = HtmlConfig::default();
-        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
+        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), config);
 
         writer.write_str("<p>").unwrap();
         let _ = escape_html(&mut writer.get_writer(), "Hello & World");
@@ -66,7 +85,7 @@ mod tests {
                 .collect(),
         );
 
-        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
+        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), config);
         writer.start_paragraph().unwrap();
         writer.text("Test").unwrap();
         writer.end_paragraph().unwrap();
@@ -99,7 +118,7 @@ mod tests {
     #[test]
     fn test_custom_writer() {
         let config = HtmlConfig::default();
-        let mut writer = DefaultHtmlWriter::new(TestWriter(String::new()), &config);
+        let mut writer = DefaultHtmlWriter::new(TestWriter(String::new()), config);
 
         writer.write_str("Test").unwrap();
         assert_eq!(writer.get_writer().0, "Test");
@@ -110,7 +129,7 @@ mod tests {
         let mut output = String::new();
         let mut config = HtmlConfig::default();
         config.html.escape_html = true;
-        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), &config);
+        let mut writer = DefaultHtmlWriter::new(FmtWriter(&mut output), config);
 
         assert!(!writer.get_state().currently_in_code_block);
         writer.get_state().currently_in_code_block = true;

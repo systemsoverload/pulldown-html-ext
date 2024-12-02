@@ -92,7 +92,7 @@ impl HtmlConfig {
 
 /// Writer that adds syntax highlighting to code blocks
 pub struct SyntectWriter<'a, W: StrWrite> {
-    inner: DefaultHtmlWriter<'a, W>,
+    inner: DefaultHtmlWriter<W>,
     style: SyntectConfigStyle,
     syntax_set: Option<&'a SyntaxSet>,
     theme_set: Option<&'a ThemeSet>,
@@ -104,7 +104,7 @@ impl<'a, W: StrWrite> SyntectWriter<'a, W> {
         let style = config.syntect.clone().unwrap_or_default();
 
         Self {
-            inner: DefaultHtmlWriter::new(writer, config),
+            inner: DefaultHtmlWriter::new(writer, config.clone()),
             style,
             syntax_set: None,
             theme_set: None,
@@ -121,7 +121,7 @@ impl<'a, W: StrWrite> SyntectWriter<'a, W> {
         let style = config.syntect.clone().unwrap_or_default();
 
         Self {
-            inner: DefaultHtmlWriter::new(writer, config),
+            inner: DefaultHtmlWriter::new(writer, config.clone()),
             style,
             syntax_set,
             theme_set,
