@@ -21,7 +21,7 @@ serde_json = "1.0.133"
 syntect = {version = "5.2.0", optional = true }
 thiserror = "1.0"
 toml = "0.8.19"
-
+pulldown-html-ext-derive = { path = "../pulldown-html-ext-derive", version = "0.5.0" }
 
 [dev-dependencies]
 html-compare-rs = "0.2.0"

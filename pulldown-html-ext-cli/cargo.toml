@@ -7,7 +7,7 @@ license.workspace = true
 description = "CLI tool for extended HTML rendering of Markdown with pulldown-cmark"
 
 [dependencies ]
-pulldown-html-ext = { path = "../pulldown-html-ext", version = "0.4.0" }
+pulldown-html-ext = { path = "../pulldown-html-ext", version = "0.5.0" }
 toml = "0.8"
 clap = { version = "4.4", features = ["derive"] }
 pulldown-cmark = "0.12.2"
