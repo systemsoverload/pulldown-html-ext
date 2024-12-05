@@ -24,7 +24,7 @@ pub use self::config::{
     AttributeMappings, CodeBlockOptions, ElementOptions, HeadingOptions, HtmlConfig, HtmlOptions,
     LinkOptions,
 };
-pub use self::default::DefaultHtmlWriter;
+pub use self::default::{DefaultHtmlWriter, HtmlWriterBase};
 pub use self::error::HtmlError;
 pub use self::state::{HtmlState, ListContext, TableContext};
 pub use self::writer::HtmlWriter;
@@ -223,10 +223,6 @@ where
     let writer = DefaultHtmlWriter::new(IoWriter(writer), config.clone());
     let mut renderer = HtmlRenderer::new(writer);
     renderer.run(iter)
-}
-
-pub fn create_html_renderer<W: StrWrite, H: HtmlWriter<W>>(writer: H) -> HtmlRenderer<W, H> {
-    HtmlRenderer::new(writer)
 }
 
 #[cfg(test)]

@@ -1,13 +1,13 @@
 use crate::html::{config, HtmlError};
+use crate::html::{HtmlConfig, HtmlState, HtmlWriter, HtmlWriterBase};
+use crate::{html_writer, HtmlRenderer};
 use lazy_static::lazy_static;
-use pulldown_cmark_escape::StrWrite;
+use pulldown_cmark_escape::{escape_html_body_text, StrWrite};
 use serde::{Deserialize, Deserializer};
 use syntect::highlighting::{Theme, ThemeSet};
 use syntect::html::{ClassStyle, ClassedHTMLGenerator};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-
-use crate::html::{DefaultHtmlWriter, HtmlConfig, HtmlState, HtmlWriter};
 
 lazy_static! {
     static ref SYNTAX_SET: SyntaxSet = SyntaxSet::load_defaults_newlines();
@@ -91,8 +91,12 @@ impl HtmlConfig {
 }
 
 /// Writer that adds syntax highlighting to code blocks
-pub struct SyntectWriter<'a, W: StrWrite> {
-    inner: DefaultHtmlWriter<W>,
+#[html_writer]
+pub struct SyntectWriter<'a, W: StrWrite>
+where
+    W: 'a,
+{
+    base: HtmlWriterBase<W>,
     style: SyntectConfigStyle,
     syntax_set: Option<&'a SyntaxSet>,
     theme_set: Option<&'a ThemeSet>,
@@ -102,9 +106,8 @@ pub struct SyntectWriter<'a, W: StrWrite> {
 impl<'a, W: StrWrite> SyntectWriter<'a, W> {
     pub fn new(writer: W, config: &'a config::HtmlConfig) -> Self {
         let style = config.syntect.clone().unwrap_or_default();
-
         Self {
-            inner: DefaultHtmlWriter::new(writer, config.clone()),
+            base: HtmlWriterBase::new(writer, config.clone()),
             style,
             syntax_set: None,
             theme_set: None,
@@ -119,9 +122,8 @@ impl<'a, W: StrWrite> SyntectWriter<'a, W> {
         theme_set: Option<&'a ThemeSet>,
     ) -> Self {
         let style = config.syntect.clone().unwrap_or_default();
-
         Self {
-            inner: DefaultHtmlWriter::new(writer, config.clone()),
+            base: HtmlWriterBase::new(writer, config.clone()),
             style,
             syntax_set,
             theme_set,
@@ -165,19 +167,7 @@ impl<'a, W: StrWrite> SyntectWriter<'a, W> {
     }
 }
 
-impl<'a, W: StrWrite> HtmlWriter<W> for SyntectWriter<'a, W> {
-    fn get_writer(&mut self) -> &mut W {
-        self.inner.get_writer()
-    }
-
-    fn get_config(&self) -> &HtmlConfig {
-        self.inner.get_config()
-    }
-
-    fn get_state(&mut self) -> &mut HtmlState {
-        self.inner.get_state()
-    }
-
+impl<'a, W: StrWrite> SyntectWriter<'a, W> {
     fn start_code_block(&mut self, kind: pulldown_cmark::CodeBlockKind) -> Result<(), HtmlError> {
         self.current_lang = match kind {
             pulldown_cmark::CodeBlockKind::Fenced(ref info) => {
@@ -210,7 +200,13 @@ impl<'a, W: StrWrite> HtmlWriter<W> for SyntectWriter<'a, W> {
             let highlighted = self.highlight_code(text, self.current_lang.as_deref());
             self.write_str(&highlighted)
         } else {
-            self.inner.text(text)
+            if self.get_config().html.escape_html {
+                escape_html_body_text(self.get_writer(), text)
+                    .map_err(|_| HtmlError::Write(std::fmt::Error))?;
+            } else {
+                self.write_str(text)?;
+            }
+            Ok(())
         }
     }
 
@@ -232,7 +228,8 @@ pub fn push_html_with_highlighting(
 
     let mut output = String::new();
     let writer = SyntectWriter::new(FmtWriter(&mut output), config);
-    let mut renderer = crate::html::create_html_renderer(writer);
+    let mut renderer: HtmlRenderer<FmtWriter<&mut String>, SyntectWriter<FmtWriter<&mut String>>> =
+        HtmlRenderer::new(writer);
 
     let parser = Parser::new(markdown);
     renderer.run(parser)?;

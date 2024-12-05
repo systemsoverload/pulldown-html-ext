@@ -91,7 +91,7 @@ config.attributes.element_attributes.insert("p".to_string(), attrs);
 Create custom HTML writers by implementing the `HtmlWriter` trait. This allows you to customize how specific Markdown elements are rendered to HTML:
 
 ```rust
-use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, create_html_renderer};
+use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, HtmlRenderer};
 use pulldown_cmark_escape::{StrWrite, FmtWriter};
 use pulldown_cmark::{HeadingLevel, Parser};
 
@@ -153,7 +153,7 @@ impl<W: StrWrite> HtmlWriter<W> for CustomWriter<W> {
 fn main() {
     let mut output = String::new();
     let writer = CustomWriter::new(FmtWriter(&mut output), HtmlConfig::default());
-    let mut renderer = create_html_renderer(writer);
+    let mut renderer = HtmlRenderer::new(writer);
     
     let markdown = "# Main Title\n## Subtitle\n### Section";
     let parser = Parser::new(markdown);

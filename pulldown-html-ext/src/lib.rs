@@ -23,7 +23,7 @@
 //!
 //! Custom rendering with a custom writer:
 //! ```rust
-//! use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, create_html_renderer};
+//! use pulldown_html_ext::{HtmlConfig, HtmlWriter, HtmlState, HtmlRenderer};
 //! use pulldown_cmark_escape::{StrWrite, FmtWriter};
 //!
 //! struct CustomWriter<W: StrWrite> {
@@ -61,7 +61,7 @@
 //!     FmtWriter(&mut output),
 //!     HtmlConfig::default()
 //! );
-//! let mut renderer = create_html_renderer(writer);
+//! let mut renderer = HtmlRenderer::new(writer);
 //!
 //! // Use the renderer with a parser
 //! use pulldown_cmark::Parser;
@@ -75,10 +75,10 @@
 mod html;
 pub mod utils;
 pub use html::{
-    create_html_renderer, push_html, push_html_with_highlighting, write_html_fmt, write_html_io,
-    AttributeMappings, CodeBlockOptions, DefaultHtmlWriter, ElementOptions, HeadingOptions,
-    HtmlConfig, HtmlError, HtmlOptions, HtmlRenderer, HtmlState, HtmlWriter, LinkOptions,
-    SyntectConfig, SyntectConfigStyle, SyntectWriter,
+    push_html, push_html_with_highlighting, write_html_fmt, write_html_io, AttributeMappings,
+    CodeBlockOptions, DefaultHtmlWriter, ElementOptions, HeadingOptions, HtmlConfig, HtmlError,
+    HtmlOptions, HtmlRenderer, HtmlState, HtmlWriter, HtmlWriterBase, LinkOptions, SyntectConfig,
+    SyntectConfigStyle, SyntectWriter,
 };
 pub use pulldown_html_ext_derive::html_writer;
 
