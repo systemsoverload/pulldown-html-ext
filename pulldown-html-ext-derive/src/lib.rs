@@ -18,7 +18,8 @@ fn process_html_writer(
     skip_docs: bool,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
-    let _generics = &input.generics;
+    let generics = &input.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // Validate the input is a struct
     let fields = match &input.data {
@@ -76,7 +77,7 @@ fn process_html_writer(
         #docs
         #input
 
-        impl<W: StrWrite> HtmlWriter<W> for #name<W> {
+        impl #impl_generics HtmlWriter<W> for #name #ty_generics #where_clause {
             fn get_writer(&mut self) -> &mut W {
                 self.base.get_writer()
             }
