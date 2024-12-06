@@ -41,7 +41,8 @@ trait HtmlWriter<W: StrWrite> {
 
 #[html_writer(skip_docs)]
 #[derive(Debug)]
-struct NoDocsWriter<W> {
+struct NoDocsWriter<W: StrWrite> {
+    // Added StrWrite trait bound here
     base: HtmlWriterBase<W>,
 }
 

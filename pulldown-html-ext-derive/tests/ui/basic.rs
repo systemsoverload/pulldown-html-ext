@@ -41,7 +41,7 @@ trait HtmlWriter<W: StrWrite> {
 
 #[html_writer]
 #[derive(Debug)]
-struct BasicWriter<W> {
+struct BasicWriter<W: StrWrite> {
     base: HtmlWriterBase<W>,
 }
 
